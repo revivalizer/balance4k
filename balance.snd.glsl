@@ -59,7 +59,7 @@ vec2 mainSound(int samp_in, float time_in) {
 void main(){
 	int offset = int(gl_GlobalInvocationID.x) + waveOutPosition;
 	float sec = float(offset) / SAMPLES_PER_SEC;
-	waveOutSamples[offset] = mainSound(offset, sec);
+	waveOutSamples[offset] = 0.*mainSound(offset, sec);
 
 }
 
