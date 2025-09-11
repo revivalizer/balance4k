@@ -36,12 +36,12 @@
 		"enableAutoRestartBySoundShader":	true
 	},
 	"executableExportSettings":	{
-		"fileName":	"",
+		"fileName":	".\\balance.exe",
 		"xReso":	1280,
 		"yReso":	720,
 		"durationInSeconds":	120,
-		"numSoundBufferSamples":	16777216,
-		"numSoundBufferAvailableSamples":	16777216,
+		"numSoundBufferSamples":	5767168,
+		"numSoundBufferAvailableSamples":	5767168,
 		"numSoundBufferSamplesPerDispatch":	32768,
 		"enableFrameCountUniform":	true,
 		"enableSoundDispatchWait":	true,

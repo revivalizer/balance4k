@@ -14,7 +14,7 @@ layout(location = 0) uniform int waveOutPosition;
 out vec4 outColor;
 
 void main(){
-	vec2 uv = gl_FragCoord.xy / resolution;
-	outColor = vec4(uv + sin(time), 0, 1);
+	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
+	outColor = vec4(uv, 0, 1);
 }
 
