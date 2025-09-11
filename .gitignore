@@ -1,1 +1,3 @@
-*.exe
+minimal_gl*.exe
+Crinkler.exe
+shader_minifier.exe
