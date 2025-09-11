@@ -1,3 +1,9 @@
 minimal_gl*.exe
 Crinkler.exe
 shader_minifier.exe
+imgui.ini
+*.crinkler_report.html
+*.crinkler_reuse.txt
+balance.exe
+*.gfx.inl
+*.snd.inl
