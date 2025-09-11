@@ -11,11 +11,55 @@ layout(location = 0) uniform int waveOutPosition;
 	layout(local_size_x = 1) in;
 #endif
 
+const float BPM = 170;
+const float BPS = BPM / 60.f;
 
-#define NUM_SAMPLES_PER_SEC 48000.
+const float SAMPLES_PER_SEC = 48000.; // 48000 in minimal_gl
+
+const int SAMPLES_PER_STEP = int( SAMPLES_PER_SEC / BPS / 4.0 );
+const int SAMPLES_PER_BEAT = 4 * SAMPLES_PER_STEP;
+
+const float T2B = BPS;
+const float B2T = 1.0 / BPS;
+//const float S2T = 0.25 * B2T;
+
+vec2 kick(float t) {
+    if (t<0.)
+        return vec2(0.);
+    return vec2( tanh(sin(6.2831*30.0*t)*exp(-50.0*t)*10.0) );
+}
+
+vec2 snare(float t) {
+    if (t<0.)
+        return vec2(0.);
+    return vec2( sin(6.2831*200.0*t)*exp(-30.0*t) );
+}
+
+vec2 hihat(float t) {
+    if (t<0.)
+        return vec2(0.);
+    return vec2( 0.3*sin(6.2831*1000.0*t)*exp(-3000.0*t) );
+}
+
+vec2 mainSound(int samp_in, float time_in) {
+    vec4 time = vec4(samp_in % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
+    vec4 beat = time*BPS;
+  
+    // A 440 Hz wave that attenuates  quickly overt time
+    vec2 O = vec2(0.f);
+    O += kick((beat.y-0.)*B2T);
+    O += kick((beat.y-2.5)*B2T);
+    O += snare((beat.y-1.)*B2T);
+    O += snare((beat.y-3.)*B2T);
+    O += hihat((beat.x-0.)*B2T);
+    O += hihat((beat.x-0.5)*B2T);
+	return O;
+}
+
 void main(){
 	int offset = int(gl_GlobalInvocationID.x) + waveOutPosition;
-	float sec = float(offset) / NUM_SAMPLES_PER_SEC;
-	waveOutSamples[offset] = sin(vec2(sec * 440 * 6.2831)) * exp(-sec);
+	float sec = float(offset) / SAMPLES_PER_SEC;
+	waveOutSamples[offset] = mainSound(offset, sec);
+
 }
 
