@@ -23,22 +23,41 @@ const float T2B = BPS;
 const float B2T = 1.0 / BPS;
 //const float S2T = 0.25 * B2T;
 
+// vec2 kick(float t) {
+//     if (t<0.)
+//         return vec2(0.);
+//     return vec2( tanh(sin(6.2831*30.0*t)*exp(-50.0*t)*10.0) );
+// }
+
+
+
+const float PI = 3.14159265358979323846;
+const float TAU = 2*PI;
+
+// Integrated sweep from f0 to 0 with decay rate kappa
+// Also works for negative f0
+ float intExpPhase(float t, float f0, float kappa){
+    return (f0/kappa)*(1.0 - exp(-kappa*t));
+}
+
+
 vec2 kick(float t) {
     if (t<0.)
         return vec2(0.);
-    return vec2( tanh(sin(6.2831*30.0*t)*exp(-50.0*t)*10.0) );
+	float V = tanh(1.4*sin(TAU*(30.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*10.f));
+    return vec2(V);
 }
 
 vec2 snare(float t) {
     if (t<0.)
         return vec2(0.);
-    return vec2( sin(6.2831*200.0*t)*exp(-30.0*t) );
+    return vec2( sin(TAU*200.0*t)*exp(-30.0*t) );
 }
 
 vec2 hihat(float t) {
     if (t<0.)
         return vec2(0.);
-    return vec2( 0.3*sin(6.2831*1000.0*t)*exp(-3000.0*t) );
+    return vec2( 0.3*sin(TAU*1000.0*t)*exp(-3000.0*t) );
 }
 
 vec2 mainSound(int samp_in, float time_in) {
@@ -59,7 +78,7 @@ vec2 mainSound(int samp_in, float time_in) {
 void main(){
 	int offset = int(gl_GlobalInvocationID.x) + waveOutPosition;
 	float sec = float(offset) / SAMPLES_PER_SEC;
-	waveOutSamples[offset] = 0.*mainSound(offset, sec);
+	waveOutSamples[offset] = 1.*mainSound(offset, sec);
 
 }
 

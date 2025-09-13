@@ -56,7 +56,7 @@ vec4 scene0(vec3 p_in, vec3 dir, float time) {
 //		d=abs(length(p.xy)-5. + dot(sin(p.xyz), cos(p.yzx)));
 		vec3 p_ = R(0.01, 1)*(p*0.9);
 		// 0.003 is just the best constant
-		d=.003+abs(length(p.xy)-5.+1.0*dot(sin(p_),cos(p_).yzx));
+		d=.003+abs(length(p.xy)-4.+1.0*dot(sin(p_),cos(p_).yzx));
 		z+=d;
 		O+=(1.0+sin(i*0.3+z+time+vec4(6*sin(time+z*0.2+0.5),1,2*sin(time*0.1 + z*0.9+0.3),0)))/d;
 		// O+=(1.+sin(i*0.3+z+time+vec4(6,1,2,0)))/d;
@@ -80,6 +80,6 @@ void main(){
 	vec3 d = normalize(vec3(uv, -1));
 
 	//outColor = vec4(uv, 0, 1);
-	outColor = scene0(p, d, time);
+	outColor = scene0(p, R(time*0.1, 0)*R(0.3, 1)*d, time);
 }
 
