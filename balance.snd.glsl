@@ -1,6 +1,10 @@
 ﻿#version 430
 // CREDIT: Template from https://github.com/yosshin4004/minimal_gl/blob/master/examples/04_sound_output.snd.glsl, says "Copyright (C) 2020 Yosshin(@yosshin4004)"
 
+// CREDIT: FROM brainfiller/Ob5vr (https://github.com/0b5vr/brainfiller/blob/main/brainfiller.snd.glsl)
+#define repeat(i, n) for(int i=0; i<(n); i++)
+#define p2f(i) (exp2(((i)-69.)/12.)*440.)
+
 layout(location = 0) uniform int waveOutPosition;
 #if defined(EXPORT_EXECUTABLE)
 	#pragma work_around_begin:layout(std430,binding=0)buffer ssbo{vec2 %s[];};layout(local_size_x=1)in;
@@ -40,6 +44,27 @@ const float TAU = 2*PI;
     return (f0/kappa)*(1.0 - exp(-kappa*t));
 }
 
+// CREDIT: Hash functions from brainfiller/Ob5vr (https://github.com/0b5vr/brainfiller/blob/main/brainfiller.snd.glsl)
+uvec3 hash3u(uvec3 v) {
+  v = v * 1664525u + 1013904223u;
+
+  v.x += v.y * v.z;
+  v.y += v.z * v.x;
+  v.z += v.x * v.y;
+
+  v ^= v >> 16u;
+
+  v.x += v.y * v.z;
+  v.y += v.z * v.x;
+  v.z += v.x * v.y;
+
+  return v;
+}
+
+vec3 hash3f(vec3 v) {
+  uvec3 u = hash3u(floatBitsToUint(v));
+  return vec3(u) / float(-1u);
+}
 
 vec2 kick(float t) {
     if (t<0.)
@@ -54,10 +79,24 @@ vec2 snare(float t) {
     return vec2( sin(TAU*200.0*t)*exp(-30.0*t) );
 }
 
-vec2 hihat(float t) {
+vec2 hihat(float t, float step_) {
     if (t<0.)
         return vec2(0.);
-    return vec2( 0.3*sin(TAU*1000.0*t)*exp(-3000.0*t) );
+
+	vec2 O = vec2(0.);
+
+	repeat(i, 180) {
+		vec3 r = hash3f(vec3(float(i + 11.9 + 1.*floor(step_))));
+		// float freq = 8000.0 + 4000.0*(r.x*r.x*r.x);
+		float freq = p2f(118. + 6.*r.x); // This is much nicer when distributed in pitch space
+		float phase =  TAU*r.y;
+		float decay = (14.*(1.+.8*r.x)+5.*r.z);
+
+		O += (1.0 - r.x*0.4)*vec2( sin(phase + TAU*freq*t) * exp(-decay*t) );
+	}
+
+    // return vec2( 0.3*sin(TAU*1000.0*t)*exp(-3000.0*t) );
+	return 0.02*O;
 }
 
 vec2 mainSound(int samp_in, float time_in) {
@@ -70,8 +109,8 @@ vec2 mainSound(int samp_in, float time_in) {
     O += kick((beat.y-2.5)*B2T);
     O += snare((beat.y-1.)*B2T);
     O += snare((beat.y-3.)*B2T);
-    O += hihat((beat.x-0.)*B2T);
-    O += hihat((beat.x-0.5)*B2T);
+    O += hihat((beat.x-0.)*B2T, beat.x*2.);
+    O += hihat((beat.x-0.5)*B2T, beat.x*2.);
 	return O;
 }
 
