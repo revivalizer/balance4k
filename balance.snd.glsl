@@ -66,17 +66,35 @@ vec3 hash3f(vec3 v) {
   return vec3(u) / float(-1u);
 }
 
+float env_curve(float edge0, float edge1, float x) {
+	return smoothstep(edge0, edge1, x);
+}
+
+float env(float t, float attack, float decay) {
+	if (t < 0. || t > (attack + decay))
+		return 0.;
+	if (t < attack) {
+		return env_curve(0., attack, t);
+	} else {
+		return env_curve(attack + decay, attack, t);
+	}
+}
+
+// More insp: https://www.youtube.com/watch?v=tPRBIBl5--w
 vec2 kick(float t) {
     if (t<0.)
         return vec2(0.);
-	float V = tanh(1.4*sin(TAU*(30.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*10.f));
+	float V = tanh(1.4*sin(TAU*(30.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*10.));
+	// float V = tanh(1.4*sin(TAU*(30.f*t + intExpPhase(t, 120.f, 10.f))) * env(t, 0.0, 0.35)); 
     return vec2(V);
 }
 
+// Inspiration: https://www.youtube.com/watch?v=tofBTvc3uT8
+//              https://www.youtube.com/watch?v=Vr1gEf9tpLA
 vec2 snare(float t) {
     if (t<0.)
         return vec2(0.);
-    return vec2( sin(TAU*200.0*t)*exp(-30.0*t) );
+    return vec2( sin(TAU*200.0*t)*env(t, 0.001, 0.15) );
 }
 
 vec2 hihat(float t, float step_) {
@@ -90,9 +108,11 @@ vec2 hihat(float t, float step_) {
 		// float freq = 8000.0 + 4000.0*(r.x*r.x*r.x);
 		float freq = p2f(118. + 6.*r.x); // This is much nicer when distributed in pitch space
 		float phase =  TAU*r.y;
+		// float decay = (14.*(1.+.8*r.x)+5.*r.z);
 		float decay = (14.*(1.+.8*r.x)+5.*r.z);
-
-		O += (1.0 - r.x*0.4)*vec2( sin(phase + TAU*freq*t) * exp(-decay*t) );
+		float decay_s = 0.15*(1.+.3*r.x); // A bit more punchy
+		// O += (1.0 - r.x*0.4)*vec2( sin(phase + TAU*freq*t) * exp(-decay*t) );
+		O += (1.0 - r.x*0.4)*vec2( sin(phase + TAU*freq*t) * env(t, 5e-4, decay_s) );
 	}
 
     // return vec2( 0.3*sin(TAU*1000.0*t)*exp(-3000.0*t) );
