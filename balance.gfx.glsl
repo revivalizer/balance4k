@@ -83,3 +83,100 @@ void main(){
 	outColor = scene0(p, R(time*0.1, 0)*R(0.3, 1)*d, time);
 }
 
+/*
+    "Accretion" by @XorDev
+    
+    I discovered an interesting refraction effect
+    by adding the raymarch iterator to the turbulence!
+    https://x.com/XorDev/status/1936884244128661986
+*/
+
+// /*
+//     "Accretion" by @XorDev
+    
+//     I discovered an interesting refraction effect
+//     by adding the raymarch iterator to the turbulence!
+//     https://x.com/XorDev/status/1936884244128661986
+// */
+
+// void mainImage(out vec4 O, vec2 I)
+// {
+//     //Raymarch depth
+//     float z,
+//     //Step distance
+//     d,
+//     //Raymarch iterator
+//     i;
+//     //Clear fragColor and raymarch 20 steps
+//     for(O*=i; i++<2e1; )
+//     {
+//         //Sample point (from ray direction)
+//         vec3 p = z*normalize(vec3(I+I,0)-iResolution.xyx)+.1;
+        
+//         //Polar coordinates and additional transformations
+//         p = vec3(atan(p.y/.2,p.x)*2., p.z/4., length(p.xy)-1.-z*.5);
+// //        p += 0.3*sin(p.zyx*3.);
+// //           p = round(p.xzy*10.1)/10.1;
+        
+//         //Apply turbulence and refraction effect
+//         for(d=0.; d++<7.;)
+//             p += 3.5*sin(round(p.yzx*0.7)/3.*d+0.8*iTime+0.3*cos(d))/d;
+            
+//         //Distance to cylinder and waves with refraction
+//         z += d = length(vec4(.4*cos(p)-.4, p.z));
+        
+//         //Coloring and brightness
+//         O += (1.1+cos(p.x+i*.4+z+vec4(6,1,2,0)))/d;
+//     }
+//     //Tanh tonemap
+//     O = tanh(O*O/4e2);
+// }
+
+
+// /*
+//     @yufengjie brought up the idea of distorting a couple spheres
+//     instead of a tunnel, so i tinkered with this a bit
+    
+//     the only changes are there are two vecs, q and p,
+//     both are distorted differently in the turbulence loop,
+//     then the min of the two spheres is taken
+    
+//     and the colors are different :D
+// */
+
+// void mainImage(out vec4 o, vec2 u) {
+    
+//     vec3 q,p = iResolution;
+    
+//     float i, s,
+//           // start the ray at a small random distance,
+//           // this will reduce banding
+//           d = .125*texelFetch(iChannel0, ivec2(u)%1024, 0).a,
+//           t = iTime;
+          
+//     // scale coords
+//     u =(u+u-p.xy)/p.y;
+    
+//     for(o*=i; i++<1e2; ) {
+        
+//         // shorthand for standard raymarch sample, then move forward:
+//         // p = ro + rd * d, p.z -= 5.;
+//         q = p = vec3(u * d, d - 5.);
+
+//         // turbulence
+//         for (s = 1.; s++ <8.;
+//             q += sin(.6*t+p.zxy*s*.3)*.4,
+//             p += sin(t+round(p.yzx*1.6)/1.6*s)*.25);
+
+//         // distance to spheres
+//         d += s = .005 + abs(-(length(p.xy*2.03+1.)-2. - length(q-1.)-3.))*.2;
+        
+//         // color: 1.+cos so we don't go negative, cos(d+vec4(6,4,2,0)) samples from the palette
+//         // divide by s for form and distance
+//         o += (1.+cos(p.z+vec4(6,4,2,0))) / s;
+        
+//     }
+    
+//     // tonemap and divide brightness
+//     o = tanh(o / 8e3 / max(length(u), .5));
+// }
