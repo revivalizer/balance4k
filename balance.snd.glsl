@@ -61,6 +61,32 @@ uvec3 hash3u(uvec3 v) {
   return v;
 }
 
+// float sinc(float x) { return abs(x) < 1e-7 ? 1.0 : sin(x) / x; }
+
+// // For Blackman window, approx
+// //    N = 17 -> -6 dB/oct
+// //    N = 33 -> -12 dB/oct
+// //    N = 65 -> -24 dB/oct
+// float blackman(int n, int N){
+//     float t = TAU*float(n)/(float(N)-1.0);
+//     return 0.42 - 0.5*cos(t) + 0.08*cos(2.0*t);
+// }
+
+// float lp_tap(int k, int N, float fc) {
+// 	float m = 0.5*(N-1), a = fc/SAMPLES_PER_SEC, x = float(k)-m;
+// 	float hlp = 2.0*a*sinc(TAU*a*x);
+// }
+
+// float hp_tap(int k, int N, float fc) {
+// 	// Spectral inversion
+// 	return ((k==((N-1)/2)) ? 1.0 : 0.0) - lp_tap(k, N, fc);
+// }
+
+// float res_tap(int k, int N, float fc, float g) {
+// 	float m = 0.5*(N-1), wc = TAU*fc/SAMPLES_PER_SEC, x = float(k)-m;
+// 	return g * cos(wc*x);
+// }
+
 vec3 hash3f(vec3 v) {
   uvec3 u = hash3u(floatBitsToUint(v));
   return vec3(u) / float(-1u);
