@@ -157,7 +157,7 @@ vec2 mainSound(int samp_in, float time_in) {
     O += snare((beat.y-3.)*B2T);
     O += hihat((beat.x-0.)*B2T, beat.x*2.);
     O += hihat((beat.x-0.5)*B2T, beat.x*2.);
-	return O;
+	return 0.0*O;
 }
 
 void main(){

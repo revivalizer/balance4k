@@ -72,7 +72,174 @@ vec4 scene0(vec3 p_in, vec3 dir, float time) {
 	return tanh(O/1e2);
 }
 
+
+
+// Font parameters, tweaking these is fun :)
+// ----
+
+const float baseWidth = 4.0;
+const float baseHeight = 4.6;
+const float baseHeightUpper = 2.0;
+
+const float verticalSpacingLow = 1.0;
+const float verticalSpacingHigh = 0.3;
+const float horisontalSpacing = 1.3;
+
+const float letterWidth = 2.0 * baseWidth + horisontalSpacing;
+
+const float letterSpacing = 0.7;
+
+const float rounding = 1.5;
+
+
+// Helper grid so common coordinates in font can be easily computed
+// ----
+
+const float X[4] = float[4](0.0, baseWidth, baseWidth + horisontalSpacing, baseWidth + horisontalSpacing + baseWidth);
+
+const float Y[7] = float[7](0.0, baseHeight, baseHeight + verticalSpacingLow, baseHeight + verticalSpacingLow + baseHeightUpper, baseHeight + verticalSpacingLow + baseHeightUpper + verticalSpacingHigh, baseHeight + verticalSpacingLow + baseHeightUpper + verticalSpacingHigh + baseHeightUpper, 50.);
+
+vec2 G(int x, int y) {
+	return vec2(X[x], Y[y]);
+}
+
+// Basic signed distance functions
+// ----
+
+float sdBox( vec2 p, vec2 b )
+{
+  vec2 d = abs(p) - b;
+  return length(max(d,0.0))
+         + min(max(d.x,d.y),0.0); // remove this line for an only partially signed sdf 
+}
+
+float sdBox(vec2 p, vec2 ll, vec2 ur)
+{
+	vec2 d = ur - ll;
+	return sdBox(p - ll - d/2.0, d/2.0);
+}
+
+float sdRoundBox( vec2 p, vec2 b, float r )
+{
+  vec2 d = abs(p) - b;
+  return length(max(d,0.0)) - r
+         + min(max(d.x,d.y),0.0); // remove this line for an only partially signed sdf 
+}
+
+float sdRoundBox(vec2 p, vec2 ll, vec2 ur, float r)
+{
+	vec2 d = ur - ll;
+	return sdRoundBox(p - ll - d/2.0, d/2.0 - r, r);
+}
+
+// Slope -1 through a
+float sdLine2(vec2 p, vec2 a) {
+    return dot(p - a, vec2(1.0/sqrt(2.0)));
+}
+
+
+// Letter distance functions composed of simpler SDFs
+// ----
+float F(vec2 p) {
+	float d = sdBox(p, G(0, 0), G(3, 5));
+	d = max(d, -sdBox(p, G(1, 0), G(3, 2)));
+	return d;
+}
+
+float N(vec2 p) {
+	float d = sdBox(p, G(0, 0), G(3, 5));
+
+	float up = -sdLine2(p, G(1, 5));
+	float down = sdLine2(p, G(2, 2));
+
+	float cut = sdBox(p, G(1, 0), G(2, 5));
+	cut = max(cut, min(up, down));
+	d = max(d, -cut);
+
+	return d;	
+}
+
+float U(vec2 p) {
+	float d = sdBox(p, G(0, 0), G(3, 5));
+	d = max(d, -sdBox(p, G(1, 1), G(2, 5)));
+
+	// rounding
+	float c = sdRoundBox(p, G(0,0), G(3, 6), rounding);
+	d = max(d, c);
+
+	return d;   
+}
+
+float Q(vec2 p) {
+	float d = sdBox(p, G(0, 0), G(3, 5));
+	d = max(d, -sdBox(p, G(1, 1), G(2, 3)));
+
+	// rounding
+	float c = sdRoundBox(p, G(0,0), G(3, 5), rounding);
+	d = max(d, c);
+
+	// bottom protrusion
+	d = min(d, sdBox(p, G(2, 0), G(3, 1)));
+
+	return d;
+}
+
+float E(vec2 p) {
+	float d = sdBox(p, G(0, 0), G(3, 5));
+	d = max(d, -sdBox(p, G(1, 1), G(3, 2)));
+	return d;
+}
+
+float FNUQUE(vec2 p) {
+    float d = F(p);
+	
+	p = p - vec2(letterWidth + letterSpacing, 0.0); // x offset
+	d = min(d, N(p));
+
+	p = p - vec2(letterWidth + letterSpacing, 0.0);
+	d = min(d, U(p));
+
+	p = p - vec2(letterWidth + letterSpacing, 0.0);
+	d = min(d, Q(p));
+
+	p = p - vec2(letterWidth + letterSpacing, 0.0);
+	d = min(d, U(p));
+
+	p = p - vec2(letterWidth + letterSpacing, 0.0);
+	d = min(d, E(p));
+
+	float BottomY = G(0, 3).y;
+	float TopY = G(0, 4).y;
+	d = max(d, -sdBox(p, vec2(-150., BottomY), vec2(150., TopY)));
+
+    return d;
+}
+
+
+
 void main(){
+	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
+	// vec3 p = vec3(0.);
+	// p.z-=time;
+
+	// vec3 d = normalize(vec3(uv, -1));
+
+	//outColor = vec4(uv, 0, 1);
+	// outColor = scene0(p, R(time*0.1, 0)*R(0.3, 1)*d, time);
+
+	float d, q;
+
+    vec2 p = uv*20.0;
+    p.x *= 1.0 + p.y/55.0;
+    p.x += 28.0;
+    d = FNUQUE(p);
+    q = smoothstep(0.0, -0.05, d);
+    outColor = vec4(vec3(1.3)*q, q);
+
+
+}
+
+void mainscene0(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 	vec3 p = vec3(0.);
 	p.z-=time;
