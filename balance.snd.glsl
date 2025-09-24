@@ -107,12 +107,37 @@ float env(float t, float attack, float decay) {
 }
 
 // More insp: https://www.youtube.com/watch?v=tPRBIBl5--w
+vec2 dirtykick(float t) {
+    if (t<0.)
+        return vec2(0.);
+	vec2 V = vec2(tanh(1.4*sin(TAU*(hash3f(vec3(t)).x*0.155*exp(-t*8.0).x + 40.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*6.)));
+	V += hash3f(vec3(t)).xy*2.1*exp(-t*50.);
+	float Drive = 2.0;
+	V = tanh(V*Drive);
+	V *= abs(sin(t*45.));
+    return V;
+}
+
+vec2 dirtykick2(float t) {
+    if (t<0.)
+        return vec2(0.);
+	vec2 V = vec2(tanh(1.4*sin(TAU*(hash3f(vec3(t)).x*0.155*exp(-t*8.0).x + 40.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*6.)));
+	V += hash3f(vec3(t)).xy*2.1*exp(-t*50.);
+	float Drive = 2.0;
+	V = tanh(V*Drive);
+	// V *= abs(sin(t*45.));
+    return V;
+}
+
 vec2 kick(float t) {
     if (t<0.)
         return vec2(0.);
-	float V = tanh(1.4*sin(TAU*(30.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*10.));
-	// float V = tanh(1.4*sin(TAU*(30.f*t + intExpPhase(t, 120.f, 10.f))) * env(t, 0.0, 0.35)); 
-    return vec2(V);
+	vec2 V = vec2(tanh(1.4*sin(TAU*(40.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*10.)));
+	V += hash3f(vec3(t)).xy*4.1*exp(-t*50.);
+	float Drive = 2.0;
+	V = tanh(V*Drive);
+	V *= abs(sin(t*15.)); // Ok, this is a little luck, gives a nice bounce
+    return V;
 }
 
 // Inspiration: https://www.youtube.com/watch?v=tofBTvc3uT8
@@ -145,6 +170,11 @@ vec2 hihat(float t, float step_) {
 	return 0.02*O;
 }
 
+vec2 hihat2(float t, float step_) {
+    if (t<0.)
+        return vec2(0.);
+}
+
 vec2 mainSound(int samp_in, float time_in) {
     vec4 time = vec4(samp_in % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 beat = time*BPS;
@@ -152,12 +182,14 @@ vec2 mainSound(int samp_in, float time_in) {
     // A 440 Hz wave that attenuates  quickly overt time
     vec2 O = vec2(0.f);
     O += kick((beat.y-0.)*B2T);
-    O += kick((beat.y-2.5)*B2T);
+    O += dirtykick2((beat.y-2.5)*B2T);
     O += snare((beat.y-1.)*B2T);
-    O += snare((beat.y-3.)*B2T);
-    O += hihat((beat.x-0.)*B2T, beat.x*2.);
-    O += hihat((beat.x-0.5)*B2T, beat.x*2.);
-	return 0.0*O;
+    // O += snare((beat.y-3.)*B2T);
+    O += hihat((beat.x-0.0)*B2T, beat.x*2.);
+    O += hihat((beat.x-0.25)*B2T, beat.x*2.);
+    // O += hihat((beat.x-0.50)*B2T, beat.x*2.);
+    // O += hihat((beat.x-0.75)*B2T, beat.x*2.);
+	return 1.0*O;
 }
 
 void main(){
