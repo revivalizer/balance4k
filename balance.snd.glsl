@@ -93,20 +93,6 @@ vec3 hash3f(vec3 v) {
   return vec3(u) / float(-1u);
 }
 
-float env_curve(float edge0, float edge1, float x) {
-	return smoothstep(edge0, edge1, x);
-}
-
-float env(float t, float attack, float decay) {
-	if (t < 0. || t > (attack + decay))
-		return 0.;
-	if (t < attack) {
-		return env_curve(0., attack, t);
-	} else {
-		return env_curve(attack + decay, attack, t);
-	}
-}
-
 vec2 stereowidth(vec2 v, float w) {
 	return mix(vec2((v.x+v.y)*0.5), v, vec2(w));
 }
