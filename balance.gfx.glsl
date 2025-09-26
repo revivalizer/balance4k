@@ -217,7 +217,7 @@ float FNUQUE(vec2 p) {
 
 
 
-void main(){
+void mainfnuque(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 	// vec3 p = vec3(0.);
 	// p.z-=time;
@@ -239,7 +239,7 @@ void main(){
 
 }
 
-void mainscene0(){
+void main(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 	vec3 p = vec3(0.);
 	p.z-=time;
