@@ -258,7 +258,7 @@ vec3 main_fnuque(vec2 uv) {
 		vec3 offset = vec3(uvd, 0.1);
 		vec3 noise = hash3f_normalized(offset + floor(time*16.0) + 10.897);
 
-		if (noise.z > 0.85) {
+		if (noise.z > 0.15) {
 			uv += (noise.xy) * 0.3;
 		}
 

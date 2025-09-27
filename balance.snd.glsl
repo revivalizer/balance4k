@@ -1,6 +1,11 @@
 ﻿#version 430
 // CREDIT: Template from https://github.com/yosshin4004/minimal_gl/blob/master/examples/04_sound_output.snd.glsl, says "Copyright (C) 2020 Yosshin(@yosshin4004)"
 
+// Arrangement
+// https://www.youtube.com/watch?v=xY7vRHiSJSM <- Underdog on subtractive arrangement
+// https://www.youtube.com/watch?v=oxJBrhyQ5jk <- Stranjah on the 16 bar block
+
+
 // CREDIT: FROM brainfiller/Ob5vr (https://github.com/0b5vr/brainfiller/blob/main/brainfiller.snd.glsl)
 #define repeat(i, n) for(int i=0; i<(n); i++)
 #define p2f(i) (exp2(((i)-69.)/12.)*440.)
@@ -32,6 +37,7 @@ const float B2T = 1.0 / BPS;
 //         return vec2(0.);
 //     return vec2( tanh(sin(6.2831*30.0*t)*exp(-50.0*t)*10.0) );
 // }
+
 
 
 
@@ -245,7 +251,7 @@ vec2 snare2(float t, float time) {
 		bell += tanh(vec2( ampl*vec2(cos(phase + TAU*freq*t), sin(phase + TAU*freq*t)) )*2.0);
 	}
 	bell *= linearenvexp(t-0.015, 0.010, 10.0);
-	bell = stereowidth(bell, 0.8 );
+	bell = stereowidth(bell, 0.3);
 
 
 	vec2 V = tanh((body*0.3 + noise*0.2 + bell*0.07)*5.0);
@@ -298,7 +304,7 @@ vec2 bassfm(float t, float f0) {
 	if (t<0.)
 		return vec2(0.);
 	
-	return vec2(sin(TAU*f0*t + 2.1*sin(TAU*f0*2.01*t +  4.0*sin(TAU*f0*1.51*t + 1.5*sin(TAU*f0*2.0*t)))))*exp(-t*1.5);
+	return vec2(sin(TAU*f0*t + 2.1*sin(TAU*f0*2.01*t +  4.0*sin(TAU*f0*1.51*t + 2.5*sin(TAU*f0*2.0*t)))))*exp(-t*1.5);
 }
 
 vec2 bassfm2(float t, float f0) {
@@ -312,36 +318,68 @@ vec2 bassfm2(float t, float f0) {
 	return tanh(O);
 }
 
-vec2 bassfm3(float t, float f0) {
+vec2 bassfmqq(float t, float f0) {
+	if (t<0.)
+		return vec2(0.);
+	
+	return vec2(sin(TAU*f0*t + 2.1*sin(TAU*f0*4.01*t + 1.0*sin(TAU*f0*1.51*t + 3.5*sin(TAU*f0*2.0*t)))));
+}
+
+vec2 bassfm2qq(float t, float f0) {
 	vec2 O = vec2(0.0);
 	const int N = 15;
 	repeat(i, N) {
-		vec2 V = bassfm(t+float(i)*0.001, f0 * exp(0.0005*(-(float(N-1)/2)+float(i))));
+		vec2 V = bassfmqq(t+float(i)*0.001, f0 * exp(0.0005*(-(float(N-1)/2)+float(i))));
 		V = V*pan(0.0 + (1.0/float(N-1))*float(i), -4.5);
 		O += V;
 	}
 	return tanh(O);
 }
 
+vec2 bassfm3(float t, float f0) {
+	vec2 O = vec2(0.0);
+	O += sin(TAU*f0*t) * linearenvwithhold(t, 0.005, 0.020, 0.100) ;
+	return O;
+}
+
+vec2 bassline(vec4 time, vec4 beat) {
+	#define BASS(offset, note) if (beat.z >= float(offset)) { noteFreq = p2f(float(note)); noteBeat = beat.z - float(offset); }
+    float noteFreq 		= 0.0;
+    float noteBeat		= 0.0;
+
+	BASS(0, 41)
+	BASS(1, 37)
+	BASS(2, 43)
+	BASS(3, 31)
+
+	return 0.7* bassfm3(noteBeat*B2T, noteFreq);
+	#undef BASS
+}
+
 vec2 mainSound(int samp_in, float time_in) {
     vec4 time = vec4(samp_in % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 beat = time*BPS;
   
-    // A 440 Hz wave that attenuates  quickly overt time
+	float altbar = 0.0;
+	if ((beat.z >= 24.0 && beat.z < 32.0) || (beat.z >= 56.0 && beat.z < 64.0)) {
+		altbar = 1.0;
+	}
+
+    // A 440 Hz wave that attenuates quickly over time
     vec2 O = vec2(0.f);
-	if (false) {
+	if (true) {
 		O += kick((beat.y-0.)*B2T);
 		O += dirtykick2((beat.y-2.5)*B2T);
 		O += snare2((beat.y-1.)*B2T, time.w + 0.789);
 		// O += snare2((beat.y-3.)*B2T, time.w + 0.451);
 		// // O += hihat2((beat.x-0.0)*B2T, beat.x*2.);
 
-		O += hihat2((beat.x-0.25)*B2T, beat.x*2., time.y + 0.123);
-		O += hihat2((beat.x-0.0)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+		// O += hihat2((beat.x-0.25)*B2T, beat.x*2., time.y + 0.123);
+		// O += hihat2((beat.x-0.0)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
 
 		// Another possibility - part of this is cutoff because it doesn't wrap time, so just cuts off
-		// O += hihat2((beat.x-0.75+1.0)*B2T, beat.x*2., time.y + 0.123);
-		// O += hihat2((beat.x-0.50)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+		O += hihat2((beat.x-0.75+1.0)*B2T, beat.x*2., time.y + 0.123);
+		O += hihat2((beat.x-0.50)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
 
 		// O += hihat((beat.x-0.50)*B2T, beat.x*2.);
 		// O += hihat((beat.x-0.75)*B2T, beat.x*2.);
@@ -354,10 +392,39 @@ vec2 mainSound(int samp_in, float time_in) {
 		;
 	percsidechain = 1.0 - tanh(percsidechain*1.5 );
 
-	// O += 0.7* bassfm2(time.y+0.5, p2f(40.0)) * percsidechain;
+	if (altbar == 0.f) {
+		if (mod(beat.z, 8.0) < 4.0) {
+			// main bass
+			O += 0.7*exp(-4.0*mod(beat.x, 0.50))*bassfm2(mod(beat.z, 4.0)*B2T, p2f(40.0)) * percsidechain; // Go to time.x for energy
+		} else {
+			// alt bass
+			float bassindex = floor(mod(beat.z, 32.0) / 8.0);
+
+			if (bassindex == 0.0) {
+				// gnarly 1
+				O += 1.7*exp(-5.0*mod(beat.x, 1.50))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
+
+			} if (bassindex == 1.0) {
+				// noise bass
+			} else {
+				// gnarly 2
+			}
+				
+
+		}
+		// gnarly 1
+		// if (mod(beat.z, 8.0) >= 4.0) {
+		// }
+		// // gnarly 2
+		// if (mod(beat.z, 8.0) >= 4.0) {
+		// 	O += 1.7*exp(-5.0*mod(beat.x, 1.50))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
+		// }
+	}
 
 
-	return 1.0*O;
+	// O += bassline(time, beat);
+
+	return O;
 }
 
 void main(){
