@@ -190,6 +190,28 @@ float E(vec2 p) {
 	return d;
 }
 
+// CREDIT: Hash functions from brainfiller/Ob5vr (https://github.com/0b5vr/brainfiller/blob/main/brainfiller.snd.glsl)
+uvec3 hash3u(uvec3 v) {
+  v = v * 1664525u + 1013904223u;
+
+  v.x += v.y * v.z;
+  v.y += v.z * v.x;
+  v.z += v.x * v.y;
+
+  v ^= v >> 16u;
+
+  v.x += v.y * v.z;
+  v.y += v.z * v.x;
+  v.z += v.x * v.y;
+
+  return v;
+}
+
+vec3 hash3f(vec3 v) {
+  uvec3 u = hash3u(floatBitsToUint(v));
+  return vec3(u) / float(-1u);
+}
+
 float FNUQUE(vec2 p) {
     float d = F(p);
 	
@@ -217,7 +239,7 @@ float FNUQUE(vec2 p) {
 
 
 
-void mainfnuque(){
+void main(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 	// vec3 p = vec3(0.);
 	// p.z-=time;
@@ -227,19 +249,32 @@ void mainfnuque(){
 	//outColor = vec4(uv, 0, 1);
 	// outColor = scene0(p, R(time*0.1, 0)*R(0.3, 1)*d, time);
 
+	if (true) {
+		vec2 uvd = floor(uv*(2.0 + 1.5*sin(floor(time*5.0)*23.762)));
+		vec3 offset = vec3(uvd, 0.1);
+		vec3 noise = hash3f(offset + floor(time*16 .0) + 10.897);
+
+		if (noise.z > 0.85) {
+			uv += (noise.xy-0.5) * 0.3;
+		}
+
+		// outColor = vec4(hash3f(vec3(uvd, time*0.1)), 1);
+		// return;
+	}
+
 	float d, q;
 
     vec2 p = uv*20.0;
     p.x *= 1.0 + p.y/55.0;
     p.x += 28.0;
     d = FNUQUE(p);
-    q = smoothstep(0.0, -0.05, d);
+    q = smoothstep(0.0, -0.15, d);
     outColor = vec4(vec3(1.3)*q, q);
 
 
 }
 
-void main(){
+void mainscene0(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 	vec3 p = vec3(0.);
 	p.z-=time;

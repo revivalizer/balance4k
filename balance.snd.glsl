@@ -80,6 +80,12 @@ uvec3 hash3u(uvec3 v) {
   return v;
 }
 
+vec3 hash3f(vec3 v) {
+  uvec3 u = hash3u(floatBitsToUint(v));
+  return vec3(u) / float(-1u);
+}
+
+
 float sinc(float x) { return abs(x) < 1e-7 ? 1.0 : sin(x) / x; }
 
 // For Blackman window, approx  
@@ -105,11 +111,6 @@ float hp_tap(int k, int N, float fc) {
 float res_tap(int k, int N, float fc, float g) {
 	float m = 0.5*(N-1), wc = TAU*fc/SAMPLES_PER_SEC, x = float(k)-m;
 	return g * cos(wc*x);
-}
-
-vec3 hash3f(vec3 v) {
-  uvec3 u = hash3u(floatBitsToUint(v));
-  return vec3(u) / float(-1u);
 }
 
 vec2 stereowidth(vec2 v, float w) {
@@ -343,7 +344,7 @@ vec2 mainSound(int samp_in, float time_in) {
 
     // O += hihat((beat.x-0.50)*B2T, beat.x*2.);
     // O += hihat((beat.x-0.75)*B2T, beat.x*2.);
-	return 1.0*O;
+	return 0.0*O;
 }
 
 void main(){
