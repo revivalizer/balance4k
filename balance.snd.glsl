@@ -356,6 +356,95 @@ vec2 bassline(vec4 time, vec4 beat) {
 	#undef BASS
 }
 
+vec2 saw(float t, float f0, float fc) {
+	float V = 0.0;
+	repeat(i, 127) {
+		float f = f0 * float(i+1);
+		if (f < 16000.0) {
+			float a = 1.0 / float(i+1);
+			if (f > fc) {
+				float reloct = f / fc;
+				a *= 1.0 / (1.0 + pow(reloct, 4.0));
+			}
+			V += a * sin(TAU * f * t);
+		}
+	}
+	return vec2(V);
+}
+
+vec2 reese(float t, float f0, float fc) {
+	vec2 O = vec2(0.0);
+	repeat(i, 5) {
+		float j = i - 2.0;
+		float f = f0 * exp(j*0.01);
+		vec2 V = saw(t, f, fc) * (1.0 / (abs(j)*0.2 + 1.0));
+		O += vec2(V) * pan(0.5 + float(j)*0.2, -4.5);
+	}
+	return O;
+}
+
+float tri(float x) {
+	float x2 = mod(x, 1.0) * 2.0;
+	if (x2 > 1.0)
+		return 1.0 - x2;
+	return x2 ;
+}
+
+// Inspiration: https://www.youtube.com/shorts/pYKKurirXV0
+vec2 noisebass(float t, float f0) {
+	float b = t * T2B;
+	vec2 V = sin(t*TAU*f0) + 0.3*hash3f_normalized(vec3(t + 0.123)).xy;
+	V *= tri(b);
+	V = stereowidth(V, 0.5);
+
+	return vec2(tanh(V*2.0));
+}
+
+// Inspiration: https://www.youtube.com/watch?v=BxehYL9Abg4
+vec2 shaker(float t) {
+    if (t<0.)
+        return vec2(0.);
+	
+	vec2 V = vec2(0.0);
+	const int N = 129;
+	repeat(n, N) {
+		float tap = hp_tap(n, N, 6000.0) * blackman(n, N);
+		V += hash3f_normalized(vec3(t + float(n)/SAMPLES_PER_SEC + 0.997)).xy * vec2(tap);
+	}
+
+	float env = 0.0
+	+ 0.8*linearenv(t, 0.005, 0.105)
+	+ 0.1*linearenv(t-0.110, 0.050, 0.110)
+	+ 0.2*linearenv(t-0.270, 0.040, 0.140)
+	;
+
+	V *= env;
+	// V *= env(t, 5e-2, 0.4);
+	V = stereowidth(V, 0.60);
+	return V*0.3;
+}
+
+vec2 riser(float t) {
+    if (t<0.)
+        return vec2(0.);
+	
+	float p0 = 25.0 + t*25.0;
+
+	vec2 V = vec2(0.0);
+	const int N = 221 ;
+	repeat(n, N) {
+		vec3 r = hash3f(vec3(n*1.1 + 0.9128783));
+		float p = 20.0 + 80.0 * r.x;
+		float a = exp(-0.2*pow(p0 - p, 2.0));
+		float Q = a * sin(TAU * p2f(p) * t + r.z*TAU);
+		V += Q * pan(r.y, -4.5);
+	}
+
+	V = stereowidth(V, 0.25);
+	return tanh(V)*0.2;
+}
+
+
 vec2 mainSound(int samp_in, float time_in) {
     vec4 time = vec4(samp_in % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 beat = time*BPS;
@@ -367,7 +456,7 @@ vec2 mainSound(int samp_in, float time_in) {
 
     // A 440 Hz wave that attenuates quickly over time
     vec2 O = vec2(0.f);
-	if (true) {
+	if (true ) {
 		O += kick((beat.y-0.)*B2T);
 		O += dirtykick2((beat.y-2.5)*B2T);
 		O += snare2((beat.y-1.)*B2T, time.w + 0.789);
@@ -378,8 +467,16 @@ vec2 mainSound(int samp_in, float time_in) {
 		// O += hihat2((beat.x-0.0)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
 
 		// Another possibility - part of this is cutoff because it doesn't wrap time, so just cuts off
-		O += hihat2((beat.x-0.75+1.0)*B2T, beat.x*2., time.y + 0.123);
-		O += hihat2((beat.x-0.50)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+		if (altbar == 0.f) {
+			O += hihat2((beat.x-0.75+1.0)*B2T, beat.x*2., time.y + 0.123);
+			O += hihat2((beat.x-0.50)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+		} else {
+			if (beat.z < 32.0) {
+				O += shaker(time.x)*3.0;
+			} else {
+				O += riser(mod(beat.z, 8.0)*B2T) * 1.4;
+			}
+		}
 
 		// O += hihat((beat.x-0.50)*B2T, beat.x*2.);
 		// O += hihat((beat.x-0.75)*B2T, beat.x*2.);
@@ -392,39 +489,57 @@ vec2 mainSound(int samp_in, float time_in) {
 		;
 	percsidechain = 1.0 - tanh(percsidechain*1.5 );
 
-	if (altbar == 0.f) {
-		if (mod(beat.z, 8.0) < 4.0) {
-			// main bass
-			O += 0.7*exp(-4.0*mod(beat.x, 0.50))*bassfm2(mod(beat.z, 4.0)*B2T, p2f(40.0)) * percsidechain; // Go to time.x for energy
-		} else {
-			// alt bass
-			float bassindex = floor(mod(beat.z, 32.0) / 8.0);
-
-			if (bassindex == 0.0) {
-				// gnarly 1
-				O += 1.7*exp(-5.0*mod(beat.x, 1.50))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
-
-			} if (bassindex == 1.0) {
-				// noise bass
+	if (true ) {
+		if (altbar == 0.f) {
+			if (mod(beat.z, 8.0) < 4.0) {
+				// main bass
+				O += 0.7*exp(-4.0*mod(beat.x, 0.50))*bassfm2(mod(beat.z, 4.0)*B2T, p2f(40.0)) * percsidechain; // Go to time.x for energy
 			} else {
-				// gnarly 2
-			}
-				
+				// alt bass
+				float bassindex = floor(mod(beat.z, 32.0) / 8.0);
 
+				if (bassindex == 0.0) {
+					// gnarly 1
+					O += 1.7*exp(-5.0*mod(beat.x, 1.50))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
+
+				} else if (bassindex == 1.0) {
+					// noise bass
+					O += noisebass(time.y, p2f(40.0)) * 0.5 * percsidechain;
+				} else {
+					// gnarly 2
+					O += 1.0*exp(-4.0*beat.y*B2T)*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
+					O += 1.0*exp(-4.0*(beat.y-0.5)*B2T)*bassfm2qq(mod(beat.z-0.5, 4.0)*B2T, p2f(28.0)) * percsidechain; // Go to time.x for energy
+				} 
+					
+
+			}
+			// gnarly 1
+			// if (mod(beat.z, 8.0) >= 4.0) {
+			// }
+			// // gnarly 2
+			// if (mod(beat.z, 8.0) >= 4.0) {
+			// 	O += 1.7*exp(-5.0*mod(beat.x, 1.50))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
+			// }
+		} else {
+			// reese bass
+			float time = mod(beat.z, 8.0)*B2T;
+			float length = SAMPLES_PER_BEAT*8.0 / SAMPLES_PER_SEC;
+			O += 0.3 * reese(time, p2f(37.0), p2f(50.0 + time * 20.0)) * linearenvwithhold(time, 0.100, length - 0.300, 0.200) * percsidechain;
 		}
-		// gnarly 1
-		// if (mod(beat.z, 8.0) >= 4.0) {
-		// }
-		// // gnarly 2
-		// if (mod(beat.z, 8.0) >= 4.0) {
-		// 	O += 1.7*exp(-5.0*mod(beat.x, 1.50))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
-		// }
 	}
 
+	// O += riser(mod(beat.z, 8.0)*B2T);
+	// O += riser(mod(beat.z, 8.0)*B2T);
+
+	// O += noisebass(time.y, p2f(40.0)) * 0.3;
+
+	// O += shaker((beat.y-1.0)*B2T);
+	// O += shaker((beat.y-2.0)*B2T);
+	// O += shaker((beat.y-3.0)*B2T);
 
 	// O += bassline(time, beat);
 
-	return O;
+	return clamp(O, -1.0, 1.0);
 }
 
 void main(){
