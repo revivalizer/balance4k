@@ -1,6 +1,9 @@
 ﻿#version 430
 // CREDIT: Template from https://github.com/yosshin4004/minimal_gl/blob/master/examples/01_basic_exe_exportable.gfx.glsl, says "Copyright (C) 2020 Yosshin(@yosshin4004)"
 
+// CREDIT: FROM brainfiller/Ob5vr (https://github.com/0b5vr/brainfiller/blob/main/brainfiller.snd.glsl)
+#define repeatcenteredfloat(i, n) for(float i=-((n)-1.0)/2.0; i<=((n)-1.0)/2.0; i++)
+
 layout(location = 0) uniform int waveOutPosition;
 #if defined(EXPORT_EXECUTABLE)
 	vec2 resolution = {SCREEN_XRESO, SCREEN_YRESO};
@@ -237,10 +240,7 @@ float FNUQUE(vec2 p) {
     return d;
 }
 
-
-
-void main(){
-	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
+vec3 main_fnuque(vec2 uv) {
 	// vec3 p = vec3(0.);
 	// p.z-=time;
 
@@ -252,10 +252,10 @@ void main(){
 	if (true) {
 		vec2 uvd = floor(uv*(2.0 + 1.5*sin(floor(time*5.0)*23.762)));
 		vec3 offset = vec3(uvd, 0.1);
-		vec3 noise = hash3f(offset + floor(time*16 .0) + 10.897);
+		vec3 noise = hash3f(offset + floor(time*16.0) + 10.897);
 
 		if (noise.z > 0.85) {
-			uv += (noise.xy-0.5) * 0.3;
+			uv += (noise.xy-0.5) * 1.3;
 		}
 
 		// outColor = vec4(hash3f(vec3(uvd, time*0.1)), 1);
@@ -268,10 +268,23 @@ void main(){
     p.x *= 1.0 + p.y/55.0;
     p.x += 28.0;
     d = FNUQUE(p);
-    q = smoothstep(0.0, -0.15, d);
-    outColor = vec4(vec3(1.3)*q, q);
+    q = smoothstep(0.0, -0.05, d);
+	return vec3(q);
+}
 
+void main(){
+	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 
+	vec3 col = vec3(0.0);
+
+	repeatcenteredfloat(i, 19.0) {
+		col.r += main_fnuque(uv*exp(-0.015+i*0.003)).r;
+		col.g += main_fnuque(uv*exp( 0.000+i*0.003)).g;
+		col.b += main_fnuque(uv*exp(+0.015+i*0.003)).b;
+	}
+	col /= 11.0;
+
+    outColor = vec4(col, 1.0);
 }
 
 void mainscene0(){
