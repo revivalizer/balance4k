@@ -210,9 +210,9 @@ uvec3 hash3u(uvec3 v) {
   return v;
 }
 
-vec3 hash3f(vec3 v) {
+vec3 hash3f_normalized(vec3 v) {
   uvec3 u = hash3u(floatBitsToUint(v));
-  return vec3(u) / float(-1u);
+  return (vec3(u) / float(-1u))*2.0 - 1.0;
 }
 
 float FNUQUE(vec2 p) {
@@ -249,16 +249,20 @@ vec3 main_fnuque(vec2 uv) {
 	//outColor = vec4(uv, 0, 1);
 	// outColor = scene0(p, R(time*0.1, 0)*R(0.3, 1)*d, time);
 
+ 	// uv.x += time*0.1;
+	uv /= 1.0 + time*0.02;
+	uv.y += 0.35;
+
 	if (true) {
 		vec2 uvd = floor(uv*(2.0 + 1.5*sin(floor(time*5.0)*23.762)));
 		vec3 offset = vec3(uvd, 0.1);
-		vec3 noise = hash3f(offset + floor(time*16.0) + 10.897);
+		vec3 noise = hash3f_normalized(offset + floor(time*16.0) + 10.897);
 
 		if (noise.z > 0.85) {
-			uv += (noise.xy-0.5) * 1.3;
+			uv += (noise.xy) * 0.3;
 		}
 
-		// outColor = vec4(hash3f(vec3(uvd, time*0.1)), 1);
+		// outColor = vec4(hash3f_normalized(vec3(uvd, time*0.1)), 1);
 		// return;
 	}
 

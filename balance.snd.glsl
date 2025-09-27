@@ -85,6 +85,9 @@ vec3 hash3f(vec3 v) {
   return vec3(u) / float(-1u);
 }
 
+vec3 hash3f_normalized(vec3 v) {
+	return hash3f(v) * 2.0 - 1.0;
+}
 
 float sinc(float x) { return abs(x) < 1e-7 ? 1.0 : sin(x) / x; }
 
@@ -132,8 +135,8 @@ vec2 stereowidth(vec2 v, float w) {
 vec2 dirtykick2(float t) {
     if (t<0.)
         return vec2(0.);
-	vec2 V = vec2(tanh(1.4*sin(TAU*(hash3f(vec3(t)).x*0.155*exp(-t*8.0).x + 40.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*6.)));
-	V += hash3f(vec3(t)).xy*2.1*exp(-t*50.);
+	vec2 V = vec2(tanh(1.4*sin(TAU*(hash3f_normalized(vec3(t)).x*0.075*exp(-t*8.0).x + 40.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*6.)));
+	V += hash3f_normalized(vec3(t)).xy*exp(-t*50.);
 	float Drive = 2.0;
 	V = tanh(V*Drive);
 	V = stereowidth(V, 0.75);
@@ -145,7 +148,7 @@ vec2 kick(float t) {
     if (t<0.)
         return vec2(0.);
 	vec2 V = vec2(tanh(1.4*sin(TAU*(40.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*10.)));
-	V += hash3f(vec3(t)).xy*2.1*exp(-t*50.);
+	V += hash3f_normalized(vec3(t)).xy*exp(-t*50.);
 	float Drive = 2.0;
 	V = tanh(V*Drive);
 	V *= abs(sin(t*15.)); // Ok, this is a little luck, gives a nice bounce
@@ -204,7 +207,7 @@ vec2 snare2(float t, float time) {
 	const int N = 65;
 	repeat(n, N) {
 		float tap = hp_tap(n, N, 8000.0) * blackman(n, N);
-		hit += hash3f(vec3(time + float(n)/SAMPLES_PER_SEC)).xy * vec2(tap);
+		hit += hash3f_normalized(vec3(time + float(n)/SAMPLES_PER_SEC)).xy * vec2(tap);
 	}
 	// V *= vec2(exp(-t*15.));
 	hit *= linearenvwithhold(t, 0.003, 0.005, 0.001); // 5ms   
@@ -221,7 +224,7 @@ vec2 snare2(float t, float time) {
 	const int N2 = 21;
 	repeat(n, N2) {
 		float tap = res_tap(n, N, 5000.0, 0.9) * blackman(n, N);
-		noise += hash3f(vec3(time + float(n)/SAMPLES_PER_SEC)).xy * vec2(tap);
+		noise += hash3f_normalized(vec3(time + float(n)/SAMPLES_PER_SEC)).xy * vec2(tap);
 	}
 	// V *= vec2(exp(-t*15.));
 	// noise *= linearenv(t, 0.040, 0.280);
@@ -245,7 +248,7 @@ vec2 snare2(float t, float time) {
 	bell = stereowidth(bell, 0.8 );
 
 
-	vec2 V = tanh((body*0.3 + noise*0.3 + bell*0.02)*5.0);
+	vec2 V = tanh((body*0.3 + noise*0.2 + bell*0.07)*5.0);
 	// vec2 V = noise;
 
 	return V;
@@ -282,16 +285,13 @@ vec2 hihat2(float t, float step_, float time) {
 	const int N = 65;
 	repeat(n, N) {
 		float tap = hp_tap(n, N, 8000.0) * blackman(n, N);
-		V += hash3f(vec3(time + float(n)/SAMPLES_PER_SEC)).xy * vec2(tap);
+		V += hash3f_normalized(vec3(time + float(n)/SAMPLES_PER_SEC)).xy * vec2(tap);
 	}
-
-	// V = hash3f(vec3(t*89.0 + step_*89.0)).xy * 0.3 + V * 0.7;
 
 	V *= vec2(exp(-t*15.));
 	// V *= env(t, 5e-2, 0.4);
 	V = stereowidth(V, 0.75);
 	return V*0.3;
-	// return hash3f(vec3(t+vec3(10.611, 0.33, 1.909)*step_*89.0)).xx;
 }
 
 vec2 bassfm(float t, float f0) {
@@ -312,25 +312,39 @@ vec2 bassfm2(float t, float f0) {
 	return tanh(O);
 }
 
+vec2 bassfm3(float t, float f0) {
+	vec2 O = vec2(0.0);
+	const int N = 15;
+	repeat(i, N) {
+		vec2 V = bassfm(t+float(i)*0.001, f0 * exp(0.0005*(-(float(N-1)/2)+float(i))));
+		V = V*pan(0.0 + (1.0/float(N-1))*float(i), -4.5);
+		O += V;
+	}
+	return tanh(O);
+}
+
 vec2 mainSound(int samp_in, float time_in) {
     vec4 time = vec4(samp_in % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 beat = time*BPS;
   
     // A 440 Hz wave that attenuates  quickly overt time
     vec2 O = vec2(0.f);
-	if (true) {
+	if (false) {
 		O += kick((beat.y-0.)*B2T);
 		O += dirtykick2((beat.y-2.5)*B2T);
 		O += snare2((beat.y-1.)*B2T, time.w + 0.789);
 		// O += snare2((beat.y-3.)*B2T, time.w + 0.451);
 		// // O += hihat2((beat.x-0.0)*B2T, beat.x*2.);
 
-		// O += hihat2((beat.x-0.25)*B2T, beat.x*2., time.y + 0.123);
-		// O += hihat2((beat.x-0.0)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+		O += hihat2((beat.x-0.25)*B2T, beat.x*2., time.y + 0.123);
+		O += hihat2((beat.x-0.0)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
 
 		// Another possibility - part of this is cutoff because it doesn't wrap time, so just cuts off
-		O += hihat2((beat.x-0.75+1.0)*B2T, beat.x*2., time.y + 0.123);
-		O += hihat2((beat.x-0.50)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+		// O += hihat2((beat.x-0.75+1.0)*B2T, beat.x*2., time.y + 0.123);
+		// O += hihat2((beat.x-0.50)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+
+		// O += hihat((beat.x-0.50)*B2T, beat.x*2.);
+		// O += hihat((beat.x-0.75)*B2T, beat.x*2.);
 	}
 
 	float percsidechain =
@@ -340,11 +354,10 @@ vec2 mainSound(int samp_in, float time_in) {
 		;
 	percsidechain = 1.0 - tanh(percsidechain*1.5 );
 
-	O += pow(abs(sin(beat.y*TAU*1.0)), 2.0)*bassfm2(time.y+0.5 , p2f(40.0)) * percsidechain;
+	// O += 0.7* bassfm2(time.y+0.5, p2f(40.0)) * percsidechain;
 
-    // O += hihat((beat.x-0.50)*B2T, beat.x*2.);
-    // O += hihat((beat.x-0.75)*B2T, beat.x*2.);
-	return 0.0*O;
+
+	return 1.0*O;
 }
 
 void main(){
