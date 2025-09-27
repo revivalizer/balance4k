@@ -44,6 +44,25 @@ const float TAU = 2*PI;
     return (f0/kappa)*(1.0 - exp(-kappa*t));
 }
 
+// pub fn Pan(Pan_: f64, PanningLaw: f64) audio_types.stereo_sample {
+//     // From http://music.columbia.edu/pipermail/music-dsp/2002-September/050872.html
+//     const Scale = 2.0 - 4.0 * mathtiny.pow(10.0, PanningLaw / 20.0);
+//     const PanR = Pan_;
+//     const PanL = 1.0 - Pan_;
+//     const GainL = Scale * PanL * PanL + (1.0 - Scale) * PanL;
+//     const GainR = Scale * PanR * PanR + (1.0 - Scale) * PanR;
+//     return audio_types.StereoSample(GainL, GainR);
+// }
+
+// CREDIT: http://music.columbia.edu/pipermail/music-dsp/2002-September/050872.html
+vec2 pan(float pan, float law) {
+	float Scale = 2.0-4.0*pow(10.0, law/20.0);
+	vec2 Pan = vec2(pan, 1-pan);
+	vec2 Gain = Scale*Pan*Pan + (1.0-Scale)*Pan;
+	return Gain;
+}
+
+
 // CREDIT: Hash functions from brainfiller/Ob5vr (https://github.com/0b5vr/brainfiller/blob/main/brainfiller.snd.glsl)
 uvec3 hash3u(uvec3 v) {
   v = v * 1664525u + 1013904223u;
@@ -225,7 +244,7 @@ vec2 snare2(float t, float time) {
 	bell = stereowidth(bell, 0.8 );
 
 
-	vec2 V = tanh((body*0.3 + noise*0.3 + bell*0.03)*5.0);
+	vec2 V = tanh((body*0.3 + noise*0.3 + bell*0.02)*5.0);
 	// vec2 V = noise;
 
 	return V;
@@ -274,24 +293,53 @@ vec2 hihat2(float t, float step_, float time) {
 	// return hash3f(vec3(t+vec3(10.611, 0.33, 1.909)*step_*89.0)).xx;
 }
 
+vec2 bassfm(float t, float f0) {
+	if (t<0.)
+		return vec2(0.);
+	
+	return vec2(sin(TAU*f0*t + 2.1*sin(TAU*f0*2.01*t +  4.0*sin(TAU*f0*1.51*t + 1.5*sin(TAU*f0*2.0*t)))))*exp(-t*1.5);
+}
+
+vec2 bassfm2(float t, float f0) {
+	vec2 O = vec2(0.0);
+	const int N = 15;
+	repeat(i, N) {
+		vec2 V = bassfm(t+float(i)*0.001, f0 * exp(0.0005*(-(float(N-1)/2)+float(i))));
+		V = V*pan(0.0 + (1.0/float(N-1))*float(i), -4.5);
+		O += V;
+	}
+	return tanh(O);
+}
+
 vec2 mainSound(int samp_in, float time_in) {
     vec4 time = vec4(samp_in % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 beat = time*BPS;
   
     // A 440 Hz wave that attenuates  quickly overt time
     vec2 O = vec2(0.f);
-    O += kick((beat.y-0.)*B2T);
-    O += dirtykick2((beat.y-2.5)*B2T);
-    O += snare2((beat.y-1.)*B2T, time.w + 0.789);
-    // O += snare2((beat.y-3.)*B2T, time.w + 0.451);
-    // // O += hihat2((beat.x-0.0)*B2T, beat.x*2.);
+	if (true) {
+		O += kick((beat.y-0.)*B2T);
+		O += dirtykick2((beat.y-2.5)*B2T);
+		O += snare2((beat.y-1.)*B2T, time.w + 0.789);
+		// O += snare2((beat.y-3.)*B2T, time.w + 0.451);
+		// // O += hihat2((beat.x-0.0)*B2T, beat.x*2.);
 
-    // O += hihat2((beat.x-0.25)*B2T, beat.x*2., time.y + 0.123);
-    // O += hihat2((beat.x-0.0)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+		// O += hihat2((beat.x-0.25)*B2T, beat.x*2., time.y + 0.123);
+		// O += hihat2((beat.x-0.0)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
 
-	// Another possibility - part of this is cutoff because it doesn't wrap time, so just cuts off
-    O += hihat2((beat.x-0.75+1.0)*B2T, beat.x*2., time.y + 0.123);
-    O += hihat2((beat.x-0.50)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+		// Another possibility - part of this is cutoff because it doesn't wrap time, so just cuts off
+		O += hihat2((beat.x-0.75+1.0)*B2T, beat.x*2., time.y + 0.123);
+		O += hihat2((beat.x-0.50)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
+	}
+
+	float percsidechain =
+		  1.0*linearenvwithhold((beat.y-2.5)*B2T - 0.050, 0.050, 0.250, 0.100)
+		+ 0.8*linearenvwithhold((beat.y-0.0)*B2T - 0.000, 0.000, 0.150, 0.100)
+		+ 0.7*linearenvwithhold((beat.y-1.0)*B2T - 0.000, 0.010, 0.100, 0.100)
+		;
+	percsidechain = 1.0 - tanh(percsidechain*1.5 );
+
+	O += pow(abs(sin(beat.y*TAU*1.0)), 2.0)*bassfm2(time.y+0.5 , p2f(40.0)) * percsidechain;
 
     // O += hihat((beat.x-0.50)*B2T, beat.x*2.);
     // O += hihat((beat.x-0.75)*B2T, beat.x*2.);
