@@ -16,6 +16,9 @@ layout(location = 0) uniform int waveOutPosition;
 
 out vec4 outColor;
 
+const float PI = 3.14159265358979323846;
+const float TAU = 2*PI;
+
 // CREDIT: https://github.com/0b5vr/planefiller/blob/fuck/planefiller.snd.glsl
 vec2 sincos(float t) {
 	return vec2(cos(t), sin(t));
@@ -39,41 +42,6 @@ mat3 R(float x, int o){
     return m;
 }
 /* R(t,0)=rotX, R(t,1)=rotY, R(t,2)=rotZ */
-
-
-// CREDIT: Inspiration from https://www.shadertoy.com/view/3cScWy by Xor
-// NOTE: Very sensitive to FOV, should be 1 to match above
-//       Varying tunnel radius also interesting
-//       Can be changed to sphere by including z in cylinder length
-//       Coloring, multiplier on i is interesting
-//       Instead of dividing with d on coloring line, can multiply
-//       Multiplier on sin in offset can control randomness, going quite extreme
-//       Coloring can be given an offset to desaturate a bit
-//       Letting rotation depend on time can give more life
-vec4 scene0(vec3 p_in, vec3 dir, float time) {
-	vec3 p =p_in;
-	vec4 O=vec4(0.);
-	float d=0, z=0, i=0;
-	for (; i<3e1; i++) {
-		// Cylinder + Gyroid		
-//		d=abs(length(p.xy)-5. + dot(sin(p.xyz), cos(p.yzx)));
-		vec3 p_ = R(0.01, 1)*(p*0.9);
-		// 0.003 is just the best constant
-		d=.003+abs(length(p.xy)-4.+1.0*dot(sin(p_),cos(p_).yzx));
-		z+=d;
-		O+=(1.0+sin(i*0.3+z+time+vec4(6*sin(time+z*0.2+0.5),1,2*sin(time*0.1 + z*0.9+0.3),0)))/d;
-		// O+=(1.+sin(i*0.3+z+time+vec4(6,1,2,0)))/d;
-		p += dir*d;
-		//p=z*dir;
-
-		for(float f=1.;f++<2.;
-					//Blocky, stretched waves
-					p+=0.5*sin(round(p.yxz*6.)/3.*f)/f);
-	}
-	// float c=length(p)*0.01;
-	// return vec4(vec3(c), 1.);
-	return tanh(O/1e2);
-}
 
 
 
@@ -276,7 +244,7 @@ vec3 main_fnuque(vec2 uv) {
 	return vec3(q);
 }
 
-void main(){
+void mainfnuque(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 
 	vec3 col = vec3(0.0);
@@ -291,15 +259,72 @@ void main(){
     outColor = vec4(col, 1.0);
 }
 
-void mainscene0(){
+// CREDIT: Inspiration from https://www.shadertoy.com/view/3cScWy by Xor
+// NOTE: Very sensitive to FOV, should be 1 to match above
+//       Varying tunnel radius also interesting
+//       Can be changed to sphere by including z in cylinder length
+//       Coloring, multiplier on i is interesting
+//       Instead of dividing with d on coloring line, can multiply
+//       Multiplier on sin in offset can control randomness, going quite extreme
+//       Coloring can be given an offset to desaturate a bit
+//       Letting rotation depend on time can give more life
+vec4 scene0(vec3 p_in, vec3 dir, float time, float sphereness, float noisyness, float exposure, float wildness, float rounding_multiplier) {
+	vec3 p =p_in;
+	vec4 O=vec4(0.);
+	float d=0, z=0, i=0;
+	for (; i<3e1; i++) {
+		// Cylinder + Gyroid		
+//		d=abs(length(p.xy)-5. + dot(sin(p.xyz), cos(p.yzx)));
+		vec3 p_ = R(0.01, 1)*(p*0.9);
+		// vec3 p_ = p;
+		// 0.003 is just the best constant
+		float cyl_sphere_dist = mix(length(p.xy), length(p.xyz), sphereness);
+		d=.003+abs(cyl_sphere_dist-4.+noisyness*dot(sin(p_),cos(p_).yzx));
+		z+=d;
+		O+=(1.0+sin(i*0.3+z+time+vec4(6*sin(time+z*0.2+0.5),1,2*sin(time*0.1 + z*0.9+0.3),0)))/d;
+		// O+=(1.+sin(i*0.3+z+time+vec4(6,1,2,0)))/d;
+		p += dir*d;
+		//p=z*dir;
+
+		for(float f=1.;f++<2.;
+					//Blocky, stretched waves
+					p+=wildness*sin(round(p.yxz*rounding_multiplier)/3.*f)/f);
+	}
+	// float c=length(p)*0.01;
+	// return vec4(vec3(c), 1.);
+	return tanh(O/exposure);
+}
+
+void main(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 	vec3 p = vec3(0.);
-	p.z-=time*2.0;
+	p.z-=time*0.4;
 
-	vec3 d = normalize(vec3(uv, -1));
+	float FOV = 2.0; // 1.0 Is nice initially, but for sphereness animation, higher is better probably
+	float x_rot = time*0.1;
+	float look_rot = PI; // Looking backwards in z is nice
+	// float sphereness = -0.1 + sin(time*0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
+	// OKAY, the above animation is MEGANICE
+	float sphereness = 0.0;
+	// float noisyness = 10.0; // Values up to 10 look interesting
+	// If we tweak multiplier in tanh filter, we loose outer edges/interesting behaviour
+	float noisyness = 1.0; // Values up to 10 look interesting, more animating
+	// float exposure = 1e2;
+	float exposure = 1e2;
+	float wildness = 0.5;
+	// float wildness = 1.5; // Also good
+	// float wildness = 0.01; // Extremely low values of this are also nice!
+	float rounding_multiplier = 6.0; // 1->30 are interesting
+
+
+
+
+	vec3 d = normalize(vec3(uv, -FOV));
 
 	//outColor = vec4(uv, 0, 1);
-	outColor = scene0(p, R(time*0.1, 0)*R(0.3, 1)*d, time);
+
+
+	outColor = scene0(p, R(x_rot, 0)*R(look_rot, 1)*d, time, sphereness, noisyness, exposure, wildness, rounding_multiplier);
 }
 
 /*
