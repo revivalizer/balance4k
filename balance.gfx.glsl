@@ -294,7 +294,7 @@ void main(){
 void mainscene0(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 	vec3 p = vec3(0.);
-	p.z-=time;
+	p.z-=time*2.0;
 
 	vec3 d = normalize(vec3(uv, -1));
 
