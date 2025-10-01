@@ -244,21 +244,6 @@ vec3 main_fnuque(vec2 uv) {
 	return vec3(q);
 }
 
-void mainfnuque(){
-	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
-
-	vec3 col = vec3(0.0);
-
-	repeatcenteredfloat(i, 19.0) {
-		col.r += main_fnuque(uv*exp(-0.015+i*0.003)).r;
-		col.g += main_fnuque(uv*exp( 0.000+i*0.003)).g;
-		col.b += main_fnuque(uv*exp(+0.015+i*0.003)).b;
-	}
-	col /= 11.0;
-
-    outColor = vec4(col, 1.0);
-}
-
 // CREDIT: Inspiration from https://www.shadertoy.com/view/3cScWy by Xor
 // NOTE: Very sensitive to FOV, should be 1 to match above
 //       Varying tunnel radius also interesting
@@ -295,36 +280,103 @@ vec4 scene0(vec3 p_in, vec3 dir, float time, float sphereness, float noisyness, 
 	return tanh(O/exposure);
 }
 
+// CREDIT: Inspiration from https://www.shadertoy.com/view/WcKXDV by Xor
+vec4 scene1(vec3 dir, float time, float sphereness, float planeness, float wildness, float rounding_multiplier)
+{
+	vec4 O=vec4(0.);
+	//Raymarch depth
+    float z,
+    //Step distance
+    d,
+    //Raymarch iterator
+    i;
+    //Clear fragColor and raymarch 20 steps
+    for(O*=i; i++<2e1; )
+    {
+        //Sample point (from ray direction)
+        vec3 p = z*dir;
+        
+        //Polar coordinates and additional transformations
+		// float sphereness = -0.1 + sin(time*0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
+		float cyl_sphere_plane_dist = mix(length(p.xy), length(p.xyz), sphereness);
+		cyl_sphere_plane_dist = mix(cyl_sphere_plane_dist, length(p.x), planeness);
+		// float cyl_sphere_dist = mix(length(p.xy), length(p.xyz), sphereness);
+        p = vec3(atan(p.y/.2,p.x)*2., p.z/4., cyl_sphere_plane_dist-4.-z*.5);
+//        p += 0.3*sin(p.zyx*3.);
+//           p = round(p.xzy*10.1)/10.1;
+        
+        //Apply turbulence and refraction effect
+        for(d=0.; d++<7.;)
+            p += wildness*sin(round(p.yzx*rounding_multiplier)/3.*d+0.8*time+0.3*cos(d))/d;
+            
+        //Distance to cylinder and waves with refraction
+        z += d = length(vec4(.4*cos(p)-0.4, p.z));
+        
+        //Coloring and brightness
+        // O += (1.1+cos(p.x+i*.4+z+vec4(6,1,2,0)))/d;
+		O+=(1.0+sin(i*0.3+z+time+vec4(6*sin(time+z*0.2+0.5),1,2*sin(time*0.1 + z*0.9+0.3),0)))/d;
+    }
+    //Tanh tonemap
+    O = tanh(O*O/4e2);
+	return O;
+}
+
 void main(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
-	vec3 p = vec3(0.);
-	p.z-=time*0.4;
 
-	float FOV = 2.0; // 1.0 Is nice initially, but for sphereness animation, higher is better probably
-	float x_rot = time*0.1;
-	float look_rot = PI; // Looking backwards in z is nice
-	// float sphereness = -0.1 + sin(time*0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
-	// OKAY, the above animation is MEGANICE
-	float sphereness = 0.0;
-	// float noisyness = 10.0; // Values up to 10 look interesting
-	// If we tweak multiplier in tanh filter, we loose outer edges/interesting behaviour
-	float noisyness = 1.0; // Values up to 10 look interesting, more animating
-	// float exposure = 1e2;
-	float exposure = 1e2;
-	float wildness = 0.5;
-	// float wildness = 1.5; // Also good
-	// float wildness = 0.01; // Extremely low values of this are also nice!
-	float rounding_multiplier = 6.0; // 1->30 are interesting
+	if (false) {
+		vec3 p = vec3(0.);
+		p.z-=time*0.4;
 
+		float FOV = 2.0; // 1.0 Is nice initially, but for sphereness animation, higher is better probably
+		float x_rot = time*0.1;
+		float look_rot = PI; // Looking backwards in z is nice
+		// float sphereness = -0.1 + sin(time*0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
+		// OKAY, the above animation is MEGANICE
+		float sphereness = 0.0;
+		// float noisyness = 10.0; // Values up to 10 look interesting
+		// If we tweak multiplier in tanh filter, we loose outer edges/interesting behaviour
+		float noisyness = 1.0; // Values up to 10 look interesting, more animating
+		// float exposure = 1e2;
+		float exposure = 1e2;
+		float wildness = 0.5;
+		// float wildness = 1.5; // Also good
+		// float wildness = 0.01; // Extremely low values of this are also nice!
+		float rounding_multiplier = 6.0; // 1->30 are interesting
 
+		vec3 d = normalize(vec3(uv, -FOV));
 
+		outColor = scene0(p, R(x_rot, 0)*R(look_rot, 1)*d, time, sphereness, noisyness, exposure, wildness, rounding_multiplier);
+	}
 
-	vec3 d = normalize(vec3(uv, -FOV));
+	if (false) {
+		vec3 col = vec3(0.0);
 
-	//outColor = vec4(uv, 0, 1);
+		const float N = 19.0;
+		repeatcenteredfloat(i, N) {
+			col.r += main_fnuque(uv*exp(-0.015+i*0.003)).r;
+			col.g += main_fnuque(uv*exp( 0.000+i*0.003)).g;
+			col.b += main_fnuque(uv*exp(+0.015+i*0.003)).b;
+		}
+		col /= N;
 
+		outColor = vec4(col, 1.0);
+	}
 
-	outColor = scene0(p, R(x_rot, 0)*R(look_rot, 1)*d, time, sphereness, noisyness, exposure, wildness, rounding_multiplier);
+	if (true) {
+		float FOV = 0.5; // 0.5 is good, 1 2 also work;
+		float x_rot = time*0.1;
+		float look_rot = 0.3; // PI*0.5 is also interesting
+		float sphereness = 0.2 + 1.4*sin(time*0.1);
+		float planeness = 0.5 + sin(time*0.19);
+		// float sphereness = 0.5;
+		// float planenses = 3.5;
+		float wildness = 3.5;
+		float rounding_multiplier = 0.7; // 0.3, 0.7, 8 good, 192 good
+
+		vec3 d = normalize(vec3(uv, -FOV));
+		outColor = scene1( R(x_rot, 0)*R(look_rot, 1)*d, time, sphereness, planeness, wildness, rounding_multiplier);
+	}
 }
 
 /*
