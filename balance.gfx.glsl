@@ -208,7 +208,7 @@ float FNUQUE(vec2 p) {
     return d;
 }
 
-vec3 main_fnuque(vec2 uv) {
+vec3 main_fnuque(vec2 uv, float time) {
 	// vec3 p = vec3(0.);
 	// p.z-=time;
 
@@ -321,6 +321,54 @@ vec4 scene1(vec3 dir, float time, float sphereness, float planeness, float wildn
 	return O;
 }
 
+// CREDIT: Inspiration from https://www.shadertoy.com/view/3fBcR3
+vec4 scene2(vec3 dir, float time, float rounding_multiplier) {
+// void mainImage(out vec4 o, vec2 u) {
+    
+	vec4 o=vec4(0.);
+
+    vec3 q,p;
+    
+    float i, s,
+          // start the ray at a small random distance,
+          // this will reduce banding
+        //   d = .125*texelFetch(iChannel0, ivec2(uv)%1024, 0).a,
+		  d = 0.0, // Rework this
+          t = time;
+
+    // scale coords
+    //u =(u+u-p.xy)/p.y;
+    
+    for(o*=i; i++<1e2; ) {
+        
+        // shorthand for standard raymarch sample, then move forward:
+        // p = ro + rd * d, p.z -= 5.;
+        // q = p = vec3(u * d, d - 5.);
+		q = p = dir * d + vec3(0., 0., 20.0-time*0.4);
+
+        // turbulence
+        for (s = 1.; s++ <8.;
+            q += sin(.6*t+p.zxy*s*.3)*.4,
+            p += sin(t+round(p.yzx*rounding_multiplier)/rounding_multiplier*s)*.25);
+
+        // distance to spheres
+        float dist_sphere = .005 + abs(-(length(p.xyz*2.03+1.)-2. - length(q.xyz-1.)-5.))*.2;
+        float dist_cyl = .005 + abs(-(length(p.xyz*2.03+1.)-2. - length(q.x-1.)-5.))*.2;
+        // d += s = mix(dist_sphere, dist_cyl, -0.1 + 1.4*sin(time*0.1));
+        d += s = dist_cyl;
+        
+        // color: 1.+cos so we don't go negative, cos(d+vec4(6,4,2,0)) samples from the palette
+        // divide by s for form and distance
+        o += (1.+cos(p.z+vec4(3,4,2,0))) / s;
+        
+    }
+    
+    // tonemap and divide brightness
+    o = tanh(o / 4e3);
+	return o;
+// }	
+}
+
 void main(){
 	vec2 uv = (gl_FragCoord.xy*2 - resolution) / resolution.yy;
 
@@ -349,21 +397,21 @@ void main(){
 		outColor = scene0(p, R(x_rot, 0)*R(look_rot, 1)*d, time, sphereness, noisyness, exposure, wildness, rounding_multiplier);
 	}
 
-	if (false) {
+	if (true) {
 		vec3 col = vec3(0.0);
 
 		const float N = 19.0;
 		repeatcenteredfloat(i, N) {
-			col.r += main_fnuque(uv*exp(-0.015+i*0.003)).r;
-			col.g += main_fnuque(uv*exp( 0.000+i*0.003)).g;
-			col.b += main_fnuque(uv*exp(+0.015+i*0.003)).b;
+			col.r += main_fnuque(uv*exp(-0.015+i*0.003), time*0.0).r;
+			col.g += main_fnuque(uv*exp( 0.000+i*0.003), time*0.0).g;
+			col.b += main_fnuque(uv*exp(+0.015+i*0.003), time*0.0).b;
 		}
 		col /= N;
 
 		outColor = vec4(col, 1.0);
 	}
 
-	if (true) {
+	if (false) {
 		float FOV = 0.5; // 0.5 is good, 1 2 also work;
 		float x_rot = time*0.1;
 		float look_rot = 0.3; // PI*0.5 is also interesting
@@ -377,57 +425,17 @@ void main(){
 		vec3 d = normalize(vec3(uv, -FOV));
 		outColor = scene1( R(x_rot, 0)*R(look_rot, 1)*d, time, sphereness, planeness, wildness, rounding_multiplier);
 	}
+
+	if (false) {
+		float FOV = 0.2;
+		float x_rot = time*0.1;
+		float look_rot = 0.6;
+		float rounding_multiplier = 1.0/1.0; // 1/8, 1, 8 works
+
+		vec3 d = normalize(vec3(uv, -FOV));
+		outColor = scene2( R(x_rot, 0)*R(look_rot, 1)*d, time, rounding_multiplier);
+	}
 }
-
-/*
-    "Accretion" by @XorDev
-    
-    I discovered an interesting refraction effect
-    by adding the raymarch iterator to the turbulence!
-    https://x.com/XorDev/status/1936884244128661986
-*/
-
-// /*
-//     "Accretion" by @XorDev
-    
-//     I discovered an interesting refraction effect
-//     by adding the raymarch iterator to the turbulence!
-//     https://x.com/XorDev/status/1936884244128661986
-// */
-
-// void mainImage(out vec4 O, vec2 I)
-// {
-//     //Raymarch depth
-//     float z,
-//     //Step distance
-//     d,
-//     //Raymarch iterator
-//     i;
-//     //Clear fragColor and raymarch 20 steps
-//     for(O*=i; i++<2e1; )
-//     {
-//         //Sample point (from ray direction)
-//         vec3 p = z*normalize(vec3(I+I,0)-iResolution.xyx)+.1;
-        
-//         //Polar coordinates and additional transformations
-//         p = vec3(atan(p.y/.2,p.x)*2., p.z/4., length(p.xy)-1.-z*.5);
-// //        p += 0.3*sin(p.zyx*3.);
-// //           p = round(p.xzy*10.1)/10.1;
-        
-//         //Apply turbulence and refraction effect
-//         for(d=0.; d++<7.;)
-//             p += 3.5*sin(round(p.yzx*0.7)/3.*d+0.8*iTime+0.3*cos(d))/d;
-            
-//         //Distance to cylinder and waves with refraction
-//         z += d = length(vec4(.4*cos(p)-.4, p.z));
-        
-//         //Coloring and brightness
-//         O += (1.1+cos(p.x+i*.4+z+vec4(6,1,2,0)))/d;
-//     }
-//     //Tanh tonemap
-//     O = tanh(O*O/4e2);
-// }
-
 
 // /*
 //     @yufengjie brought up the idea of distorting a couple spheres
