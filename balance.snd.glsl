@@ -364,7 +364,7 @@ vec2 saw(float t, float f0, float fc) {
 			float a = 1.0 / float(i+1);
 			if (f > fc) {
 				float reloct = f / fc;
-				a *= 1.0 / (1.0 + pow(reloct, 4.0));
+				a *= 1.0 / (1.0 + pow(reloct, 2.0));
 			}
 			V += a * sin(TAU * f * t);
 		}
@@ -374,11 +374,11 @@ vec2 saw(float t, float f0, float fc) {
 
 vec2 reese(float t, float f0, float fc) {
 	vec2 O = vec2(0.0);
-	repeat(i, 5) {
-		float j = i - 2.0;
-		float f = f0 * exp(j*0.01);
-		vec2 V = saw(t, f, fc) * (1.0 / (abs(j)*0.2 + 1.0));
-		O += vec2(V) * pan(0.5 + float(j)*0.2, -4.5);
+	repeat(i, 9) {
+		float j = i - 4.0;
+		float f = f0 * exp(j*0.005);
+		vec2 V = saw(t, f, fc) * (1.0 / (abs(j)*0.5 + 1.0));
+		O += vec2(V) * pan(0.5 + float(j)*0.1, -4.5);
 	}
 	return O;
 }
@@ -444,6 +444,46 @@ vec2 riser(float t) {
 	return tanh(V)*0.2;
 }
 
+vec2 mainbass_bar(float barpos) {
+	float note = 40.0;
+
+	float curnote, curpan, curvol;
+
+	float pl=0.1,pr=0.9;
+
+#define B(pos, note, pan, vol) if (barpos > pos) { curnote=note; curpan=pan; curvol=vol; }
+	B(0.0, note, pl, 1.0)
+	B(0.5, note, pr, 1.0)
+	B(1.0, note, pl, 0.0)
+	B(1.5, note, pr, 1.0)
+	B(2.0, note, pl, 1.0)
+	B(2.5, note, pr, 1.0)
+	B(3.0, note, pl, 0.5)
+	B(3.5, note, pr, 1.0)
+#undef B
+
+	return 2.0*(0.7*exp(-4.0*mod(barpos, 0.50))*bassfm2(barpos*B2T, p2f(curnote))*pan(curpan, -4.5))*curvol;
+}
+
+vec2 gnarly1bass_bar(float barpos) {
+	float note = 36.0;
+
+	float curnote, curpan, curvol;
+
+	// TODO: Cleanup pan 
+	float pl=0.5,pr=0.5;
+
+#define B(pos, note, pan, vol) if (barpos > pos) { curnote=note; curpan=pan; curvol=vol; }
+	B(0.0, note, pl, 1.0)
+	B(1.0, note, pl, 1.0)
+	B(2.0, note, pl, 1.0)
+	B(3.0, note, pl, 1.0)
+#undef B
+
+	return exp(-5.0*mod(barpos, 1))*bassfm2qq(barpos*B2T, p2f(curnote))*curvol; // Go to time.x for energy
+
+}
+
 vec2 mainSound(int samp_in, float time_in) {
     vec4 time = vec4(samp_in % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 beat = time*BPS;
@@ -492,18 +532,17 @@ vec2 mainSound(int samp_in, float time_in) {
 		if (altbar == 0.f) {
 			if (mod(beat.z, 8.0) < 4.0) {
 				// main bass
-				float note = 40.0;
 				// if (beat.y < 0.50)
 				// 	note = 1.0;
-				O += 0.7*exp(-4.0*mod(beat.x, 0.50))*bassfm2(mod(beat.z, 4.0)*B2T, p2f(note)) * percsidechain; // Go to time.x for energy
+				O += mainbass_bar(mod(beat.z, 4.0)) * percsidechain; // Go to time.x for energy
 			} else {
 				// alt bass
 				float bassindex = floor(mod(beat.z, 32.0) / 8.0);
 
 				if (bassindex == 0.0) {
 					// gnarly 1
-					O += 1.7*exp(-5.0*mod(beat.x, 1.50))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
-
+					O += 1.7*gnarly1bass_bar(mod(beat.z, 4.0)) * percsidechain;
+					// O += 1.7*exp(-5.0*mod(beat.x, 1))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
 				} else if (bassindex == 1.0) {
 					// noise bass
 					O += noisebass(time.y, p2f(40.0)) * 1.0  * percsidechain;
@@ -526,10 +565,12 @@ vec2 mainSound(int samp_in, float time_in) {
 			// reese bass
 			float time = mod(beat.z, 8.0)*B2T;
 			float length = SAMPLES_PER_BEAT*8.0 / SAMPLES_PER_SEC;
-			O += 0.3 * reese(time, p2f(37.0), p2f(50.0 + time * 20.0)) * linearenvwithhold(time, 0.100, length - 0.300, 0.200) * percsidechain;
+			float offset = 0.2;
+			O += 0.6 * reese(time, p2f(37.0), p2f(50.0 + time * 13.0)) * linearenvwithhold(time - offset, 0.300, length - 0.500 - offset, 0.200) * percsidechain;
 		}
 	}
 
+	// O = vec2(0.0);
 	// O += riser(mod(beat.z, 8.0)*B2T);
 	// O += riser(mod(beat.z, 8.0)*B2T);
 
@@ -541,7 +582,7 @@ vec2 mainSound(int samp_in, float time_in) {
 
 	// O += bassline(time, beat);
 
-	return 0.0*clamp(O, -1.0, 1.0);
+	return 1.0*clamp(O, -1.0, 1.0);
 }
 
 void main(){
