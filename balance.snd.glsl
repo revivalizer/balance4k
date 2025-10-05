@@ -393,8 +393,8 @@ float tri(float x) {
 // Inspiration: https://www.youtube.com/shorts/pYKKurirXV0
 vec2 noisebass(float t, float f0) {
 	float b = t * T2B;
-	vec2 V = sin(t*TAU*f0) + 0.3*hash3f_normalized(vec3(t + 0.123)).xy;
-	V *= tri(b);
+	vec2 V = sin(t*TAU*f0) + 0.08*hash3f_normalized(vec3(t + 0.123)).xy;
+	V *= abs(tri(b));
 	V = stereowidth(V, 0.5);
 
 	return vec2(tanh(V*2.0));
@@ -484,10 +484,24 @@ vec2 gnarly1bass_bar(float barpos) {
 
 }
 
+vec2 noisebass_bar(float barpos) {
+	return noisebass(barpos*B2T, p2f(40.0));
+}
+
+vec2 gnarly2bass_bar(float barpos) {
+	float beatpos = mod((barpos * 4.0), 1.0);
+	vec2 O = vec2(0.);
+	O += 1.0*exp(-4.0*beatpos*B2T)*bassfm2qq(barpos*B2T, p2f(36.0)); // Go to time.x for energy
+	O += 1.0*exp(-4.0*(beatpos-0.5)*B2T)*bassfm2qq(mod(barpos-0.5, 4.0)*B2T, p2f(28.0)); // Go to time.x for energy
+	return O;
+}
+
 vec2 mainSound(int samp_in, float time_in) {
     vec4 time = vec4(samp_in % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 beat = time*BPS;
   
+	float barpos = mod(beat.z, 4.0);
+
 	float altbar = 0.0;
 	if ((beat.z >= 24.0 && beat.z < 32.0) || (beat.z >= 56.0 && beat.z < 64.0)) {
 		altbar = 1.0;
@@ -534,22 +548,23 @@ vec2 mainSound(int samp_in, float time_in) {
 				// main bass
 				// if (beat.y < 0.50)
 				// 	note = 1.0;
-				O += mainbass_bar(mod(beat.z, 4.0)) * percsidechain; // Go to time.x for energy
+				O += mainbass_bar(barpos) * percsidechain; // Go to time.x for energy
 			} else {
 				// alt bass
 				float bassindex = floor(mod(beat.z, 32.0) / 8.0);
 
 				if (bassindex == 0.0) {
 					// gnarly 1
-					O += 1.7*gnarly1bass_bar(mod(beat.z, 4.0)) * percsidechain;
+					O += 1.7*gnarly1bass_bar(barpos) * percsidechain;
 					// O += 1.7*exp(-5.0*mod(beat.x, 1))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
 				} else if (bassindex == 1.0) {
 					// noise bass
-					O += noisebass(time.y, p2f(40.0)) * 1.0  * percsidechain;
+					// O += noisebass(time.y, p2f(40.0)) * percsidechain;
+					O += noisebass_bar(barpos) * percsidechain;
 				} else {
 					// gnarly 2
-					O += 1.0*exp(-4.0*beat.y*B2T)*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
-					O += 1.0*exp(-4.0*(beat.y-0.5)*B2T)*bassfm2qq(mod(beat.z-0.5, 4.0)*B2T, p2f(28.0)) * percsidechain; // Go to time.x for energy
+					O += 1.0*exp(-4.0*beat.y*B2T)*bassfm2qq(barpos*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
+					O += 1.0*exp(-4.0*(beat.y-0.5)*B2T)*bassfm2qq(mod(barpos-0.5, 4.0)*B2T, p2f(28.0)) * percsidechain; // Go to time.x for energy
 				} 
 					
 
@@ -571,6 +586,12 @@ vec2 mainSound(int samp_in, float time_in) {
 	}
 
 	// O = vec2(0.0);
+
+	// O += mainbass_bar(barpos);
+	// O += gnarly1bass_bar(barpos);
+	// O += gnarly2bass_bar(barpos);
+	// O += noisebass_bar(barpos);
+
 	// O += riser(mod(beat.z, 8.0)*B2T);
 	// O += riser(mod(beat.z, 8.0)*B2T);
 
