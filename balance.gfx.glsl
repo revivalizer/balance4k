@@ -397,7 +397,7 @@ void main() {
         outColor = scene0(p, R(x_rot, 0) * R(look_rot, 1) * d, time, sphereness, noisyness, exposure, wildness, rounding_multiplier);
     }
 
-    if (true) {
+    if (false) {
         vec3 col = vec3(0.0);
 
         const float N = 19.0;
@@ -427,7 +427,7 @@ void main() {
         outColor = scene1(R(x_rot, 0) * R(look_rot, 1) * d, time, sphereness, planeness, wildness, rounding_multiplier);
     }
 
-    if (false) {
+    if (true) {
         float FOV = 0.2;
         float x_rot = time * 0.1;
         float look_rot = 0.6;

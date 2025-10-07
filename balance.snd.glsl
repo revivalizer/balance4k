@@ -9,6 +9,18 @@
 #define repeat(i, n) for(int i=0; i<(n); i++)
 #define p2f(i) (exp2(((i)-69.)/12.)*440.)
 
+float log10(float v) {
+    return log(v) / log(10.0);
+}
+
+float to_db(float gain) {
+    return 20.0 * log10(gain);
+}
+
+float from_db(float db) {
+    return pow(10.0, db / 20.0);
+}
+
 layout(location = 0) uniform int waveOutPosition;
 #if defined(EXPORT_EXECUTABLE)
 #pragma work_around_begin:layout(std430,binding=0)buffer ssbo{vec2 %s[];};layout(local_size_x=1)in;
@@ -600,8 +612,158 @@ vec2 pad(float barpos) {
     return V * 0.04;
 }
 
+float filterformant(float freq, vec3 formant) {
+    float f = formant.x;
+    float db = formant.y;
+    float bw = formant.z * 2.0;
+    float bw2 = bw * bw;
+
+    // float V = linearenv_curve(f - bw, f, freq) * linearenv_curve(f, f + bw, freq); // Tri shape at f, +/- bw
+    float V = exp(-pow(freq - f, 2.0) / (2.0 * bw2));
+    V *= from_db(db);
+    return V;
+}
+
+// CREDIT: Formant values: https://www.classes.cs.uchicago.edu/archive/1999/spring/CS295/Computing_Resources/Csound/CsManual3.48b1.HTML/Appendices/table3.html
+const vec3 formant_tenor_a[5] = vec3[](
+        vec3(650, 0, 80),
+        vec3(1080, -6, 90),
+        vec3(2650, -7, 120),
+        vec3(2900, -8, 130),
+        vec3(3250, -22, 140)
+    );
+
+const vec3 formant_bass_a[5] = vec3[](
+        vec3(600, 0, 80),
+        vec3(1040, -7, 90),
+        vec3(2250, -9, 120),
+        vec3(2450, -9, 130),
+        vec3(2750, -20, 140)
+    );
+
+const vec3 formant_tenor_u[5] = vec3[](
+        vec3(350, 0, 40),
+        vec3(600, -20, 60),
+        vec3(2700, -17, 100),
+        vec3(2900, -14, 120),
+        vec3(3300, -26, 120)
+    );
+
+const vec3 formant_tenor_o[5] = vec3[](
+        vec3(400, 0, 40),
+        vec3(800, -10, 80),
+        vec3(2600, -12, 100),
+        vec3(2800, -12, 120),
+        vec3(3000, -26, 120)
+    );
+
+vec2 pad2voice(float barpos) {
+    float t = barpos * B2T;
+    // barpos goes from 0-64
+    if (t < 0.)
+        return vec2(0.);
+
+    float note = 52.0;
+    float note_freq = p2f(note);
+
+    vec2 V = vec2(0.0);
+
+    const int NUM_MODES = 30;
+    repeat(mode, NUM_MODES)
+    {
+        vec3 mode_r = hash3f_normalized(vec3(mode * 13.1 + 9.9128783));
+        float mode_magnitude = pow(2.0, 1.2 * mode_r.x * sin(TAU * (0.02 + 0.13 * mode_r.y) * t + mode_r.z));
+
+        const int NUM_HARMONICS_PER_MODE = 19;
+        repeat(harmonic, NUM_HARMONICS_PER_MODE + int(mode))
+        {
+            vec3 r = hash3f_normalized(vec3(mode * 1.1 + 11.9128783 + harmonic * 1.9));
+
+            float mode_freq = note_freq * (mode + 1.0);
+            float rel_oct = log(mode_freq / note_freq);
+
+            float freq = mode_freq * pow(2.0, sqrt(sqrt(rel_oct + 2.0)) * 0.027 * r.x); // scale up with freq
+
+            float magnitude = 1.0 / pow((mode_freq / note_freq), 1.5);
+
+            float formant_glide = smoothstep(0.0, 1.1, barpos - 1.2);
+
+            float formant = 0.0;
+            repeat(n, 5)
+            {
+                formant = max(formant, filterformant(freq, mix(formant_tenor_o[n], formant_tenor_a[n], formant_glide)));
+            }
+
+            magnitude *= 0.0 + 1.0 * formant;
+
+            float env = linearenvwithhold(barpos, 0.15 + abs(r.x) * 0.5, 2.3 + abs(r.y) * 0.1, 1.0 + abs(r.z) * 0.1);
+            magnitude *= env;
+
+            float Q = mode_magnitude * magnitude * sin(TAU * freq * t + r.z * TAU);
+            V += Q * pan(r.y * 0.5 + 0.5, -4.5);
+        }
+    }
+
+    V = stereowidth(V, 0.6);
+    return V * 0.4;
+}
+
+vec2 pad3voice(float barpos, float barnum) {
+    float t = barpos * B2T;
+    // barpos goes from 0-64
+    if (t < 0.)
+        return vec2(0.);
+
+    float note = 52.0;
+    float note_freq = p2f(note);
+
+    vec2 V = vec2(0.0);
+
+    const int NUM_MODES = 30;
+    repeat(mode, NUM_MODES)
+    {
+        vec3 mode_r = hash3f_normalized(vec3(mode * 13.1 + 9.9128783 + barnum * 0.1432));
+        float mode_magnitude = pow(2.0, 1.07 * mode_r.x * sin(TAU * (0.02 + 0.13 * mode_r.y) * t + mode_r.z));
+
+        const int NUM_HARMONICS_PER_MODE = 19 * 2;
+        repeat(harmonic, NUM_HARMONICS_PER_MODE + int(mode))
+        {
+            vec3 r = hash3f_normalized(vec3(mode * 1.1 + 11.9128783 + harmonic * 1.9 + barnum * 0.1432));
+
+            float mode_freq = note_freq * (mode + 1.0);
+            float rel_oct = log(mode_freq / note_freq);
+
+            float freq = mode_freq * pow(2.0, sqrt(sqrt(rel_oct + 2.0)) * 0.027 * r.x); // scale up with freq
+
+            float magnitude = 1.0 / pow((mode_freq / note_freq), 1.5);
+
+            float formant_glide = smoothstep(0.0 - abs(r.x) * 0.05, 0.5 + r.y * 0.03, barpos);
+
+            float formant = 0.0;
+            repeat(n, 5)
+            {
+                formant = max(formant, filterformant(freq, mix(formant_tenor_o[n], formant_tenor_a[n], formant_glide)));
+            }
+
+            magnitude *= 0.0 + 1.0 * formant;
+
+            float env = linearenvwithhold(barpos, 0.15 + abs(r.x) * 0.01, 0.3 + abs(r.y) * 0.003, 0.5 + abs(r.z) * 0.05);
+            magnitude *= env;
+
+            float Q = mode_magnitude * magnitude * sin(TAU * freq * t + r.z * TAU);
+            V += Q * pan(r.y * 0.5 + 0.5, -4.5);
+        }
+    }
+
+    V = stereowidth(V, 0.6);
+    return V * 0.4;
+}
+
 vec2 mainSound(int samp_in, float time_in) {
-    vec4 time = vec4(samp_in % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
+    // int samp_offset = 0;
+    int samp_offset = (SAMPLES_PER_BEAT * 4) * 0;
+
+    vec4 time = vec4((samp_in + samp_offset) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 beat = time * BPS;
 
     float block = floor(beat.w / 64.0);
@@ -658,7 +820,7 @@ vec2 mainSound(int samp_in, float time_in) {
 
     float percsidechain =
         1.0 * linearenvwithhold((beat.y - 2.5) * B2T - 0.050, 0.050, 0.250, 0.100)
-            + 0.8 * linearenvwithhold((beat.y - 0.0) * B2T - 0.000, 0.000, 0.150, 0.100)
+            + 0.8 * linearenvwithhold((beat.y - 0.0) * B2T - 0.000, 0.010, 0.140, 0.100)
             + 0.7 * linearenvwithhold((beat.y - 1.0) * B2T - 0.000, 0.010, 0.100, 0.100);
     percsidechain = 1.0 - tanh(percsidechain * 1.5);
 
@@ -705,6 +867,26 @@ vec2 mainSound(int samp_in, float time_in) {
 
     // O = vec2(0.0);
     O += enable_pad * 1.5 * pad(mod(beat.z, 64.0)) * sqrt(percsidechain);
+
+    // FADEOUT
+    // PAD + WAs
+    // WAs trigger word
+    // End WAs, play fnuque
+
+    // TODO: n tweaking is good!!!
+    repeat(n, 5)
+    {
+        float pan_ = 0.5;
+        if (n == 0) {}
+        else if (mod(n, 2) == 0) {
+            pan_ = 0.1;
+        }
+        else if (mod(n, 2) == 1) {
+            pan_ = 0.9;
+        }
+        O += 0.8 * pad3voice(mod(beat.z - 4.0 - n * 1.0, 8.0), floor((beat.z - 4.0) / 8.0)) * exp(-n * 0.3) * pan(pan_, -4.5);
+    }
+    // O += pad2voice(mod(beat.z, 8.0) - 1.5 - 0.125).yx * 0.5 * percsidechain;
 
     // O += mainbass_bar(barpos);
     // O += gnarly1bass_bar(barpos);
