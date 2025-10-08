@@ -494,6 +494,45 @@ vec2 riser2(float t) {
     return V * 0.4;
 }
 
+// TODO: Merge with riser2
+vec2 sweep(float t) {
+    if (t < 0. || t > 8.0)
+        return vec2(0.);
+
+    float startp = 130.0;
+    float stopp = 85.0;
+
+    float minp = min(startp, stopp);
+    float maxp = max(startp, stopp);
+    // float length = t * T2B / 8.0;
+
+    float time_factor = 2.7 * 1.0;
+
+    float pfilter = startp + t / time_factor * (stopp - startp);
+
+    float env = t / time_factor;
+    env = exp(-t * time_factor * 0.5);
+
+    vec2 V = vec2(0.0);
+    const int N = 221;
+    repeat(n, N)
+    {
+        vec3 r = hash3f(vec3(n * 1.1 + 11.9128783));
+        float p = minp + (maxp - minp) * r.x;
+        float a = exp(-0.005 * pow(pfilter - p, 2.0));
+        float magnitude = 1.0 / (2.0 * p2f(p) / p2f(minp));
+        a *= magnitude;
+        // if (p < pfilter)
+        //     a = 1;
+
+        float Q = a * sin(TAU * p2f(p) * t + r.z * TAU);
+        V += Q * pan(r.y, -4.5);
+    }
+
+    V = env * stereowidth(V, 0.25);
+    return V * 0.4;
+}
+
 vec2 mainbass_bar(float barpos) {
     float note = 40.0;
 
@@ -545,13 +584,12 @@ vec2 gnarly2bass_bar(float barpos) {
     return O;
 }
 
-vec2 pad(float barpos) {
+vec2 pad(float barpos, float note) {
     float t = barpos * B2T;
     // barpos goes from 0-64
     if (t < 0.)
         return vec2(0.);
 
-    float note = 40.0;
     float note_freq = p2f(note);
 
     vec2 V = vec2(0.0);
@@ -614,47 +652,47 @@ vec2 pad(float barpos) {
 
 float filterformant(float freq, vec3 formant) {
     float f = formant.x;
-    float db = formant.y;
+    float gain = formant.y;
     float bw = formant.z * 2.0;
     float bw2 = bw * bw;
 
     // float V = linearenv_curve(f - bw, f, freq) * linearenv_curve(f, f + bw, freq); // Tri shape at f, +/- bw
     float V = exp(-pow(freq - f, 2.0) / (2.0 * bw2));
-    V *= from_db(db);
+    V *= gain;
     return V;
 }
 
 // CREDIT: Formant values: https://www.classes.cs.uchicago.edu/archive/1999/spring/CS295/Computing_Resources/Csound/CsManual3.48b1.HTML/Appendices/table3.html
 const vec3 formant_tenor_a[5] = vec3[](
-        vec3(650, 0, 80),
-        vec3(1080, -6, 90),
-        vec3(2650, -7, 120),
-        vec3(2900, -8, 130),
-        vec3(3250, -22, 140)
+        vec3(650, from_db(0), 80),
+        vec3(1080, from_db(-6), 90),
+        vec3(2650, from_db(-7), 120),
+        vec3(2900, from_db(-8), 130),
+        vec3(3250, from_db(-22), 140)
     );
 
 const vec3 formant_bass_a[5] = vec3[](
-        vec3(600, 0, 80),
-        vec3(1040, -7, 90),
-        vec3(2250, -9, 120),
-        vec3(2450, -9, 130),
-        vec3(2750, -20, 140)
+        vec3(600, from_db(0), 80),
+        vec3(1040, from_db(-7), 90),
+        vec3(2250, from_db(-9), 120),
+        vec3(2450, from_db(-9), 130),
+        vec3(2750, from_db(-20), 140)
     );
 
 const vec3 formant_tenor_u[5] = vec3[](
-        vec3(350, 0, 40),
-        vec3(600, -20, 60),
-        vec3(2700, -17, 100),
-        vec3(2900, -14, 120),
-        vec3(3300, -26, 120)
+        vec3(350, from_db(0), 40),
+        vec3(600, from_db(-20), 60),
+        vec3(2700, from_db(-17), 100),
+        vec3(2900, from_db(-14), 120),
+        vec3(3300, from_db(-26), 120)
     );
 
 const vec3 formant_tenor_o[5] = vec3[](
-        vec3(400, 0, 40),
-        vec3(800, -10, 80),
-        vec3(2600, -12, 100),
-        vec3(2800, -12, 120),
-        vec3(3000, -26, 120)
+        vec3(400, from_db(0), 40),
+        vec3(800, from_db(-10), 80),
+        vec3(2600, from_db(-12), 100),
+        vec3(2800, from_db(-12), 120),
+        vec3(3000, from_db(-26), 120)
     );
 
 vec2 pad2voice(float barpos) {
@@ -662,6 +700,9 @@ vec2 pad2voice(float barpos) {
     // barpos goes from 0-64
     if (t < 0.)
         return vec2(0.);
+    if (barpos > 0.5) {
+        return vec2(0.); // Optimization
+    }
 
     float note = 52.0;
     float note_freq = p2f(note);
@@ -691,7 +732,7 @@ vec2 pad2voice(float barpos) {
             float formant = 0.0;
             repeat(n, 5)
             {
-                formant = max(formant, filterformant(freq, mix(formant_tenor_o[n], formant_tenor_a[n], formant_glide)));
+                formant += (filterformant(freq, mix(formant_tenor_o[n], formant_tenor_a[n], formant_glide)));
             }
 
             magnitude *= 0.0 + 1.0 * formant;
@@ -708,13 +749,15 @@ vec2 pad2voice(float barpos) {
     return V * 0.4;
 }
 
-vec2 pad3voice(float barpos, float barnum) {
+vec2 pad3voice(float barpos, float barnum, float note) {
     float t = barpos * B2T;
     // barpos goes from 0-64
     if (t < 0.)
         return vec2(0.);
+    if (barpos > 1.0) {
+        return vec2(0.); // Optimization
+    }
 
-    float note = 52.0;
     float note_freq = p2f(note);
 
     vec2 V = vec2(0.0);
@@ -759,6 +802,10 @@ vec2 pad3voice(float barpos, float barnum) {
     return V * 0.4;
 }
 
+// IDEAS: Gatet effekt paa wah
+//        Crowds ?
+//        Ekstra snare paa hver 4 beat (sidste)
+
 vec2 mainSound(int samp_in, float time_in) {
     // int samp_offset = 0;
     int samp_offset = (SAMPLES_PER_BEAT * 4) * 0;
@@ -767,6 +814,8 @@ vec2 mainSound(int samp_in, float time_in) {
     vec4 beat = time * BPS;
 
     float block = floor(beat.w / 64.0);
+    float bar_in_block_unfloor = floor(beat.z / 4.0);
+    float bar_in_block = floor(bar_in_block_unfloor);
 
     float is_intro_1 = block == 0 ? 1.0 : 0.0;
     float is_intro_2 = block == 1 ? 1.0 : 0.0;
@@ -774,12 +823,20 @@ vec2 mainSound(int samp_in, float time_in) {
 
     // float enable_bass = block >= 2.0 ? 1.0 : 0.0;
     float enable_bass = 0.0;
-    float enable_pad = block < 2.0 ? 1.0 : 0.0;
-    float enable_kick = block >= 1.0 ? 1.0 : 0.0;
-    float enable_snare = block >=
-            1.0 ? 1.0 : 0.0;
-    float enable_hihat = 1.0;
+    float enable_pad = block < 3.0 ? 1.0 : 0.0;
+
+    float enable_wah = ((block == 1.0 && bar_in_block_unfloor >= 14.5) || block >= 2.0) ? 1.0 : 0.0;
+    float enable_kick = (block >= 1.0 && block != 3.0) ? 1.0 : 0.0;
+    float enable_snare = ((block >= 1.0 && block != 3.0) ? 1.0 : 0.0);
+    float enable_snare2 = enable_snare * ((block >= 4.0 && block <= 6.0) ? 1.0 : 0.0);
+    float enable_hihat = (block != 3.0) ? 1.0 : 0.0;
+    float enable_sweep = block >= 1.0 ? 1.0 : 0.0;
     // float enable_kick = block > 0.
+
+    float enable_block_last_bar = (block == 1.0 && bar_in_block_unfloor >= 14.0) ? 0.0 : 1.0;
+    enable_kick *= enable_block_last_bar;
+    enable_snare *= enable_block_last_bar;
+    enable_hihat *= enable_block_last_bar;
 
     float barpos = mod(beat.z, 4.0);
 
@@ -794,14 +851,14 @@ vec2 mainSound(int samp_in, float time_in) {
         O += enable_kick * kick((beat.y - 0.) * B2T);
         O += enable_kick * dirtykick2((beat.y - 2.5) * B2T);
         O += enable_snare * snare2((beat.y - 1.) * B2T, time.w + 0.789);
-        // O += snare2((beat.y-3.)*B2T, time.w + 0.451);
+        O += enable_snare2 * snare2((beat.y - 3.) * B2T, time.w + 0.451);
         // // O += hihat2((beat.x-0.0)*B2T, beat.x*2.);
 
         // O += hihat2((beat.x-0.25)*B2T, beat.x*2., time.y + 0.123);
         // O += hihat2((beat.x-0.0)*B2T, beat.x*2., time.w + 0.456); // Time wraps at the end...
 
         // Another possibility - part of this is cutoff because it doesn't wrap time, so just cuts off
-        if (altbar == 0.f) {
+        if ((altbar == 0.f || beat.w < 32.0) && beat.w > 32.0) {
             O += enable_hihat * 1.0 * hihat2((beat.x - 0.75 + 1.0) * B2T, beat.x * 2., time.y + 0.123);
             O += enable_hihat * 1.0 * hihat2((beat.x - 0.50) * B2T, beat.x * 2., time.w + 0.456); // Time wraps at the end...
         } else {
@@ -866,7 +923,23 @@ vec2 mainSound(int samp_in, float time_in) {
     }
 
     // O = vec2(0.0);
-    O += enable_pad * 1.5 * pad(mod(beat.z, 64.0)) * sqrt(percsidechain);
+
+    O += snare2((beat.w - 63.5) * B2T, time.w + 0.789);
+
+    float pad_switch_beat = beat.w - (44.0 * 4.0);
+    float pad_switch_env = linearenvwithhold(pad_switch_beat, 1.2, 5.6, 1.2);
+
+    if ((1.0 - pad_switch_env) > 0.0) {
+        O += (1.0 - pad_switch_env) * enable_pad * 1.5 * pad(mod(beat.z, 64.0), 40.0) * sqrt(percsidechain);
+    }
+
+    if ((pad_switch_env) > 0.0) {
+        O += (pad_switch_env) * 1.5 * pad(mod(beat.z - 8.0, 64.0), 38.0) * sqrt(percsidechain);
+    }
+
+    // O = vec2(0.0);
+
+    O += enable_sweep * sweep((beat.z - 16.0) * B2T) * 0.7;
 
     // FADEOUT
     // PAD + WAs
@@ -874,17 +947,29 @@ vec2 mainSound(int samp_in, float time_in) {
     // End WAs, play fnuque
 
     // TODO: n tweaking is good!!!
-    repeat(n, 5)
-    {
-        float pan_ = 0.5;
-        if (n == 0) {}
-        else if (mod(n, 2) == 0) {
-            pan_ = 0.1;
+    if (enable_wah >= 0.0) {
+        repeat(n, 5)
+        {
+            float note = 52.0;
+            if (n == 3) {
+                note = 55.0;
+                if (pad_switch_beat < 4.0)
+                {
+                    note = 57.0;
+                }
+                // On pitch down pad, use 57.0
+            }
+
+            float pan_ = 0.5;
+            if (n == 0) {}
+            else if (mod(n, 2) == 0) {
+                pan_ = 0.1;
+            }
+            else if (mod(n, 2) == 1) {
+                pan_ = 0.9;
+            }
+            O += enable_wah * 0.8 * pad3voice(mod(beat.z - 4.0 - n * 1.0, 8.0), floor((beat.z - 4.0) / 8.0), note) * exp(-n * 0.3) * pan(pan_, -4.5);
         }
-        else if (mod(n, 2) == 1) {
-            pan_ = 0.9;
-        }
-        O += 0.8 * pad3voice(mod(beat.z - 4.0 - n * 1.0, 8.0), floor((beat.z - 4.0) / 8.0)) * exp(-n * 0.3) * pan(pan_, -4.5);
     }
     // O += pad2voice(mod(beat.z, 8.0) - 1.5 - 0.125).yx * 0.5 * percsidechain;
 
