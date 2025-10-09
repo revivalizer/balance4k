@@ -172,8 +172,26 @@ vec2 kick(float t) {
     return V;
 }
 
+// Inspiration: https://www.youtube.com/watch?v=tofBTvc3uT8
+//              https://www.youtube.com/watch?v=Vr1gEf9tpLA
+// vec2 snare(float t) {
+//     if (t<0.)
+//         return vec2(0.);
+//     return vec2( sin(TAU*200.0*t)*env(t, 0.001, 0.15) );
+// }
+
 float linearenv_curve(float edge0, float edge1, float x) {
     return clamp((x - edge0) / (edge1 - edge0), 0., 1.);
+}
+
+float linearenv(float t, float attack, float decay) {
+    if (t < 0. || t > (attack + decay))
+        return 0.;
+    if (t < attack) {
+        return linearenv_curve(0., attack, t);
+    } else {
+        return 1.0 - linearenv_curve(attack, attack + decay, t);
+    }
 }
 
 float linearenvwithhold(float t, float attack, float hold, float decay) {
@@ -188,10 +206,6 @@ float linearenvwithhold(float t, float attack, float hold, float decay) {
     }
 }
 
-float linearenv(float t, float attack, float decay) {
-	return linearenvwithhold(t, attack, 0.0, decay);
-}
-
 float linearenvexp(float t, float attack, float kappa) {
     if (t < 0.) {
         return 0.;
@@ -202,8 +216,6 @@ float linearenvexp(float t, float attack, float kappa) {
     }
 }
 
-// Inspiration: https://www.youtube.com/watch?v=tofBTvc3uT8
-//              https://www.youtube.com/watch?v=Vr1gEf9tpLA
 vec2 snare2(float t, float time) {
     if (t < 0.0)
         return vec2(0.0);
@@ -260,6 +272,28 @@ vec2 snare2(float t, float time) {
     return V;
 }
 
+// vec2 hihat(float t, float step_) {
+//     if (t<0.)
+//         return vec2(0.);
+
+// 	vec2 O = vec2(0.);
+
+// 	repeat(i, 180) {
+// 		vec3 r = hash3f(vec3(float(i + 11.9 + 1.*floor(step_))));
+// 		// float freq = 8000.0 + 4000.0*(r.x*r.x*r.x);
+// 		float freq = p2f(118. + 6.*r.x); // This is much nicer when distributed in pitch space
+// 		float phase =  TAU*r.y;
+// 		// float decay = (14.*(1.+.8*r.x)+5.*r.z);
+// 		float decay = (14.*(1.+.8*r.x)+5.*r.z);
+// 		float decay_s = 0.15*(1.+.3*r.x); // A bit more punchy
+// 		// O += (1.0 - r.x*0.4)*vec2( sin(phase + TAU*freq*t) * exp(-decay*t) );
+// 		O += (1.0 - r.x*0.4)*vec2( sin(phase + TAU*freq*t) * env(t, 5e-4, decay_s) );
+// 	}
+
+//     // return vec2( 0.3*sin(TAU*1000.0*t)*exp(-3000.0*t) );
+// 	return 0.02*O;
+// }
+
 // Needs freerunning time to avoid repetition, which is audible
 vec2 hihat2(float t, float step_, float time) {
     if (t < 0.)
@@ -279,51 +313,109 @@ vec2 hihat2(float t, float step_, float time) {
     return V * 0.3;
 }
 
-// vec2 saw(float t, float f0, float fc) {
-//     float V = 0.0;
-//     repeat(i, 127)
-//     {
-//         float f = f0 * float(i + 1);
-//         if (f < 16000.0) {
-//             float a = 1.0 / float(i + 1);
-//             if (f > fc) {
-//                 float reloct = f / fc;
-//                 a *= 1.0 / (1.0 + pow(reloct, 2.0));
-//             }
-//             V += a * sin(TAU * f * t);
-//         }
-//     }
-//     return vec2(V);
-// }
+vec2 bassfm(float t, float f0) {
+    if (t < 0.)
+        return vec2(0.);
 
-// vec2 reese(float t, float f0, float fc) {
-//     vec2 O = vec2(0.0);
-//     repeat(i, 9)
-//     {
-//         float j = i - 4.0;
-//         float f = f0 * exp(j * 0.005);
-//         vec2 V = saw(t, f, fc) * (1.0 / (abs(j) * 0.5 + 1.0));
-//         O += vec2(V) * pan(0.5 + float(j) * 0.1, -4.5);
-//     }
-//     return O;
-// }
+    return vec2(sin(TAU * f0 * t + 2.1 * sin(TAU * f0 * 2.01 * t + 4.0 * sin(TAU * f0 * 1.51 * t + 2.5 * sin(TAU * f0 * 2.0 * t))))) * exp(-t * 1.5);
+}
 
-// float tri(float x) {
-//     float x2 = mod(x, 1.0) * 2.0;
-//     if (x2 > 1.0)
-//         return 1.0 - x2;
-//     return x2;
-// }
+vec2 bassfm2(float t, float f0) {
+    vec2 O = vec2(0.0);
+    const int N = 15;
+    repeat(i, N)
+    {
+        vec2 V = bassfm(t + float(i) * 0.001, f0 * exp(0.0005 * (-(float(N - 1) / 2) + float(i))));
+        V = V * pan(0.0 + (1.0 / float(N - 1)) * float(i), -4.5);
+        O += V;
+    }
+    return tanh(O);
+}
 
-// // Inspiration: https://www.youtube.com/shorts/pYKKurirXV0
-// vec2 noisebass(float t, float f0) {
-//     float b = t * T2B;
-//     vec2 V = sin(t * TAU * f0) + 0.08 * hash3f_normalized(vec3(t + 0.123)).xy;
-//     V *= abs(tri(b));
-//     V = stereowidth(V, 0.5);
+vec2 bassfmqq(float t, float f0) {
+    if (t < 0.)
+        return vec2(0.);
 
-//     return vec2(tanh(V * 2.0));
-// }
+    return vec2(sin(TAU * f0 * t + 2.1 * sin(TAU * f0 * 4.01 * t + 1.0 * sin(TAU * f0 * 1.51 * t + 3.5 * sin(TAU * f0 * 2.0 * t)))));
+}
+
+vec2 bassfm2qq(float t, float f0) {
+    vec2 O = vec2(0.0);
+    const int N = 15;
+    repeat(i, N)
+    {
+        vec2 V = bassfmqq(t + float(i) * 0.001, f0 * exp(0.0005 * (-(float(N - 1) / 2) + float(i))));
+        V = V * pan(0.0 + (1.0 / float(N - 1)) * float(i), -4.5);
+        O += V;
+    }
+    return tanh(O);
+}
+
+vec2 bassfm3(float t, float f0) {
+    vec2 O = vec2(0.0);
+    O += sin(TAU * f0 * t) * linearenvwithhold(t, 0.005, 0.020, 0.100);
+    return O;
+}
+
+vec2 bassline(vec4 time, vec4 beat) {
+    #define BASS(offset, note) if (beat.z >= float(offset)) { noteFreq = p2f(float(note)); noteBeat = beat.z - float(offset); }
+    float noteFreq = 0.0;
+    float noteBeat = 0.0;
+
+    BASS(0, 41)
+    BASS(1, 37)
+    BASS(2, 43)
+    BASS(3, 31)
+
+    return 0.7 * bassfm3(noteBeat * B2T, noteFreq);
+    #undef BASS
+}
+
+vec2 saw(float t, float f0, float fc) {
+    float V = 0.0;
+    repeat(i, 127)
+    {
+        float f = f0 * float(i + 1);
+        if (f < 16000.0) {
+            float a = 1.0 / float(i + 1);
+            if (f > fc) {
+                float reloct = f / fc;
+                a *= 1.0 / (1.0 + pow(reloct, 2.0));
+            }
+            V += a * sin(TAU * f * t);
+        }
+    }
+    return vec2(V);
+}
+
+vec2 reese(float t, float f0, float fc) {
+    vec2 O = vec2(0.0);
+    repeat(i, 9)
+    {
+        float j = i - 4.0;
+        float f = f0 * exp(j * 0.005);
+        vec2 V = saw(t, f, fc) * (1.0 / (abs(j) * 0.5 + 1.0));
+        O += vec2(V) * pan(0.5 + float(j) * 0.1, -4.5);
+    }
+    return O;
+}
+
+float tri(float x) {
+    float x2 = mod(x, 1.0) * 2.0;
+    if (x2 > 1.0)
+        return 1.0 - x2;
+    return x2;
+}
+
+// Inspiration: https://www.youtube.com/shorts/pYKKurirXV0
+vec2 noisebass(float t, float f0) {
+    float b = t * T2B;
+    vec2 V = sin(t * TAU * f0) + 0.08 * hash3f_normalized(vec3(t + 0.123)).xy;
+    V *= abs(tri(b));
+    V = stereowidth(V, 0.5);
+
+    return vec2(tanh(V * 2.0));
+}
 
 // Inspiration: https://www.youtube.com/watch?v=BxehYL9Abg4
 vec2 shaker(float t) {
@@ -347,6 +439,27 @@ vec2 shaker(float t) {
     // V *= env(t, 5e-2, 0.4);
     V = stereowidth(V, 0.60);
     return V * 0.3;
+}
+
+vec2 riser(float t) {
+    if (t < 0.)
+        return vec2(0.);
+
+    float p0 = 25.0 + t * 25.0;
+
+    vec2 V = vec2(0.0);
+    const int N = 221;
+    repeat(n, N)
+    {
+        vec3 r = hash3f(vec3(n * 1.1 + 0.9128783));
+        float p = 20.0 + 80.0 * r.x;
+        float a = exp(-0.2 * pow(p0 - p, 2.0));
+        float Q = a * sin(TAU * p2f(p) * t + r.z * TAU);
+        V += Q * pan(r.y, -4.5);
+    }
+
+    V = stereowidth(V, 0.25);
+    return tanh(V) * 0.2;
 }
 
 vec2 riser2(float t) {
@@ -420,6 +533,57 @@ vec2 sweep(float t) {
     return V * 0.4;
 }
 
+vec2 mainbass_bar(float barpos) {
+    float note = 40.0;
+
+    float curnote, curpan, curvol;
+
+    float pl = 0.1, pr = 0.9;
+
+    #define B(pos, note, pan, vol) if (barpos > pos) { curnote=note; curpan=pan; curvol=vol; }
+    B(0.0, note, pl, 1.0)
+    B(0.5, note, pr, 1.0)
+    B(1.0, note, pl, 0.0)
+    B(1.5, note, pr, 1.0)
+    B(2.0, note, pl, 1.0)
+    B(2.5, note, pr, 1.0)
+    B(3.0, note, pl, 0.5)
+    B(3.5, note, pr, 1.0)
+    #undef B
+
+    return 2.0 * (0.7 * exp(-4.0 * mod(barpos, 0.50)) * bassfm2(barpos * B2T, p2f(curnote)) * pan(curpan, -4.5)) * curvol;
+}
+
+vec2 gnarly1bass_bar(float barpos) {
+    float note = 36.0;
+
+    float curnote, curpan, curvol;
+
+    // TODO: Cleanup pan
+    float pl = 0.5, pr = 0.5;
+
+    #define B(pos, note, pan, vol) if (barpos > pos) { curnote=note; curpan=pan; curvol=vol; }
+    B(0.0, note, pl, 1.0)
+    B(1.0, note, pl, 1.0)
+    B(2.0, note, pl, 1.0)
+    B(3.0, note, pl, 1.0)
+    #undef B
+
+    return exp(-5.0 * mod(barpos, 1)) * bassfm2qq(barpos * B2T, p2f(curnote)) * curvol; // Go to time.x for energy
+}
+
+vec2 noisebass_bar(float barpos) {
+    return noisebass(barpos * B2T, p2f(40.0));
+}
+
+vec2 gnarly2bass_bar(float barpos) {
+    float beatpos = mod((barpos * 4.0), 1.0);
+    vec2 O = vec2(0.);
+    O += 1.0 * exp(-4.0 * beatpos * B2T) * bassfm2qq(barpos * B2T, p2f(36.0)); // Go to time.x for energy
+    O += 1.0 * exp(-4.0 * (beatpos - 0.5) * B2T) * bassfm2qq(mod(barpos - 0.5, 4.0) * B2T, p2f(28.0)); // Go to time.x for energy
+    return O;
+}
+
 vec2 pad(float barpos, float note) {
     float t = barpos * B2T;
     // barpos goes from 0-64
@@ -455,6 +619,30 @@ vec2 pad(float barpos, float note) {
             V += Q * pan(r.y * 0.5 + 0.5, -4.5);
         }
     }
+
+    // float minp = 85.0;
+    // float maxp = 130.0;
+    // // float length = t * T2B / 8.0;
+    // float pfilter = minp + t / 2.7 * (maxp - minp);
+
+    // float env = t / 2.7;
+    // env = env * env * env;
+
+    // vec2 V = vec2(0.0);
+    // const int N = 221;
+    // repeat(n, N)
+    // {
+    //     vec3 r = hash3f(vec3(n * 1.1 + 11.9128783));
+    //     float p = minp + (maxp - minp) * r.x;
+    //     float a = exp(-0.005 * pow(pfilter - p, 2.0));
+    //     float magnitude = 1.0 / (2.0 * p2f(p) / p2f(minp));
+    //     a *= magnitude;
+    //     // if (p < pfilter)
+    //     //     a = 1;
+
+    //     float Q = a * sin(TAU * p2f(p) * t + r.z * TAU);
+    //     V += Q * pan(r.y, -4.5);
+    // }
 
     float env = linearenvwithhold(barpos, 4.0, 52.0, 8.0);
 
@@ -506,6 +694,60 @@ const vec3 formant_tenor_o[5] = vec3[](
         vec3(2800, from_db(-12), 120),
         vec3(3000, from_db(-26), 120)
     );
+
+vec2 pad2voice(float barpos) {
+    float t = barpos * B2T;
+    // barpos goes from 0-64
+    if (t < 0.)
+        return vec2(0.);
+    if (barpos > 0.5) {
+        return vec2(0.); // Optimization
+    }
+
+    float note = 52.0;
+    float note_freq = p2f(note);
+
+    vec2 V = vec2(0.0);
+
+    const int NUM_MODES = 30;
+    repeat(mode, NUM_MODES)
+    {
+        vec3 mode_r = hash3f_normalized(vec3(mode * 13.1 + 9.9128783));
+        float mode_magnitude = pow(2.0, 1.2 * mode_r.x * sin(TAU * (0.02 + 0.13 * mode_r.y) * t + mode_r.z));
+
+        const int NUM_HARMONICS_PER_MODE = 19;
+        repeat(harmonic, NUM_HARMONICS_PER_MODE + int(mode))
+        {
+            vec3 r = hash3f_normalized(vec3(mode * 1.1 + 11.9128783 + harmonic * 1.9));
+
+            float mode_freq = note_freq * (mode + 1.0);
+            float rel_oct = log(mode_freq / note_freq);
+
+            float freq = mode_freq * pow(2.0, sqrt(sqrt(rel_oct + 2.0)) * 0.027 * r.x); // scale up with freq
+
+            float magnitude = 1.0 / pow((mode_freq / note_freq), 1.5);
+
+            float formant_glide = smoothstep(0.0, 1.1, barpos - 1.2);
+
+            float formant = 0.0;
+            repeat(n, 5)
+            {
+                formant += (filterformant(freq, mix(formant_tenor_o[n], formant_tenor_a[n], formant_glide)));
+            }
+
+            magnitude *= 0.0 + 1.0 * formant;
+
+            float env = linearenvwithhold(barpos, 0.15 + abs(r.x) * 0.5, 2.3 + abs(r.y) * 0.1, 1.0 + abs(r.z) * 0.1);
+            magnitude *= env;
+
+            float Q = mode_magnitude * magnitude * sin(TAU * freq * t + r.z * TAU);
+            V += Q * pan(r.y * 0.5 + 0.5, -4.5);
+        }
+    }
+
+    V = stereowidth(V, 0.6);
+    return V * 0.4;
+}
 
 vec2 pad3voice(float barpos, float barnum, float note) {
     float t = barpos * B2T;
@@ -638,6 +880,47 @@ vec2 mainSound(int samp_in, float time_in) {
             + 0.8 * linearenvwithhold((beat.y - 0.0) * B2T - 0.000, 0.010, 0.140, 0.100)
             + 0.7 * linearenvwithhold((beat.y - 1.0) * B2T - 0.000, 0.010, 0.100, 0.100);
     percsidechain = 1.0 - tanh(percsidechain * 1.5);
+
+    if (enable_bass != 0.f) {
+        if (altbar == 0.f) {
+            if (mod(beat.z, 8.0) < 4.0) {
+                // main bass
+                // if (beat.y < 0.50)
+                // 	note = 1.0;
+                O += mainbass_bar(barpos) * percsidechain; // Go to time.x for energy
+            } else {
+                // alt bass
+                float bassindex = floor(mod(beat.z, 32.0) / 8.0);
+
+                if (bassindex == 0.0) {
+                    // gnarly 1
+                    O += 1.7 * gnarly1bass_bar(barpos) * percsidechain;
+                    // O += 1.7*exp(-5.0*mod(beat.x, 1))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
+                } else if (bassindex == 1.0) {
+                    // noise bass
+                    // O += noisebass(time.y, p2f(40.0)) * percsidechain;
+                    O += noisebass_bar(barpos) * percsidechain;
+                } else {
+                    // gnarly 2
+                    O += 1.0 * exp(-4.0 * beat.y * B2T) * bassfm2qq(barpos * B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
+                    O += 1.0 * exp(-4.0 * (beat.y - 0.5) * B2T) * bassfm2qq(mod(barpos - 0.5, 4.0) * B2T, p2f(28.0)) * percsidechain; // Go to time.x for energy
+                }
+            }
+            // gnarly 1
+            // if (mod(beat.z, 8.0) >= 4.0) {
+            // }
+            // // gnarly 2
+            // if (mod(beat.z, 8.0) >= 4.0) {
+            // 	O += 1.7*exp(-5.0*mod(beat.x, 1.50))*bassfm2qq(mod(beat.z, 4.0)*B2T, p2f(36.0)) * percsidechain; // Go to time.x for energy
+            // }
+        } else {
+            // reese bass
+            float time = mod(beat.z, 8.0) * B2T;
+            float length = SAMPLES_PER_BEAT * 8.0 / SAMPLES_PER_SEC;
+            float offset = 0.2;
+            O += 0.6 * reese(time, p2f(37.0), p2f(50.0 + time * 13.0)) * linearenvwithhold(time - offset, 0.300, length - 0.500 - offset, 0.200) * percsidechain;
+        }
+    }
 
     // O = vec2(0.0);
 
