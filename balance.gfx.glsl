@@ -36,14 +36,17 @@ mat3 rotateX(float x) {
     return mat3(rotate2D(x));
 }
 
+// NOTE: Shader Minifier ignores mat3(1.0), which should initialize a diagonal matrix
+//       So we manually set the last entry and hope the uninitialized matrix is all zeroes
 mat3 R(float x, int o) {
     vec2 v = sincos(x);
-    int a = o, b = (o + 1) % 3;
-    mat3 m = mat3(1);
+    int a = o, b = (o + 1) % 3,c = (o + 2) % 3;
+    mat3 m = mat3(0.0);
     m[a][a] = v.x;
     m[b][a] = v.y;
     m[a][b] = -v.y;
     m[b][b] = v.x;
+    m[c][c] = 1.0;
     return m;
 }
 /* R(t,0)=rotX, R(t,1)=rotY, R(t,2)=rotZ */
@@ -412,7 +415,7 @@ void main() {
         outColor = vec4(col, 1.0);
     }
 
-    if (false) {
+    if (true) {
         float FOV = 0.5; // 0.5 is good, 1 2 also work;
         float x_rot = time * 0.1;
         float look_rot = 0.3; // PI*0.5 is also interesting
@@ -427,7 +430,7 @@ void main() {
         outColor = scene1(R(x_rot, 0) * R(look_rot, 1) * d, time, sphereness, planeness, wildness, rounding_multiplier);
     }
 
-    if (true) {
+    if (false) {
         float FOV = 0.2;
         float x_rot = time * 0.1;
         float look_rot = 0.6;
