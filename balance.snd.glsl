@@ -46,9 +46,9 @@ const float B2T = 1.0 / BPS;
 //const float S2T = 0.25 * B2T;
 
 // vec2 kick(float t) {
-//     if (t<0.)
+//     if (t < 0.)
 //         return vec2(0.);
-//     return vec2( tanh(sin(6.2831*30.0*t)*exp(-50.0*t)*10.0) );
+//     return vec2(tanh(sin(6.2831 * 30.0 * t) * exp(-50.0 * t) * 10.0));
 // }
 
 const float PI = 3.14159265358979323846;
@@ -477,37 +477,64 @@ float filterformant(float freq, vec3 formant) {
     return V;
 }
 
-// CREDIT: Formant values: https://www.classes.cs.uchicago.edu/archive/1999/spring/CS295/Computing_Resources/Csound/CsManual3.48b1.HTML/Appendices/table3.html
-const vec3 formant_tenor_a[5] = vec3[](
-        vec3(650, from_db(0), 80),
-        vec3(1080, from_db(-6), 90),
-        vec3(2650, from_db(-7), 120),
-        vec3(2900, from_db(-8), 130),
-        vec3(3250, from_db(-22), 140)
-    );
+// // CREDIT: Formant values: https://www.classes.cs.uchicago.edu/archive/1999/spring/CS295/Computing_Resources/Csound/CsManual3.48b1.HTML/Appendices/table3.html
+// const vec3 formant_tenor_a[5] = vec3[](
+//         // vec3(650, from_db(0), 80),
+//         // vec3(1080, from_db(-6), 90),
+//         // vec3(2650, from_db(-7), 120),
+//         // vec3(2900, from_db(-8), 130),
+//         // vec3(3250, from_db(-22), 140)
+//         // CREDIT: ChatGPT did these for me
+//         vec3(650, 1.00, 80),
+//         vec3(1080, 0.50, 90),
+//         vec3(2650, 0.45, 120),
+//         vec3(2900, 0.40, 130),
+//         vec3(3250, 0.08, 140)
+//     );
 
-const vec3 formant_bass_a[5] = vec3[](
-        vec3(600, from_db(0), 80),
-        vec3(1040, from_db(-7), 90),
-        vec3(2250, from_db(-9), 120),
-        vec3(2450, from_db(-9), 130),
-        vec3(2750, from_db(-20), 140)
-    );
+// // // const vec3 formant_bass_a[5] = vec3[](
+// // //         vec3(600, from_db(0), 80),
+// // //         vec3(1040, from_db(-7), 90),
+// // //         vec3(2250, from_db(-9), 120),
+// // //         vec3(2450, from_db(-9), 130),
+// // //         vec3(2750, from_db(-20), 140)
+// // //     );
 
-const vec3 formant_tenor_u[5] = vec3[](
-        vec3(350, from_db(0), 40),
-        vec3(600, from_db(-20), 60),
-        vec3(2700, from_db(-17), 100),
-        vec3(2900, from_db(-14), 120),
-        vec3(3300, from_db(-26), 120)
-    );
+// // // const vec3 formant_tenor_u[5] = vec3[](
+// // //         vec3(350, from_db(0), 40),
+// // //         vec3(600, from_db(-20), 60),
+// // //         vec3(2700, from_db(-17), 100),
+// // //         vec3(2900, from_db(-14), 120),
+// // //         vec3(3300, from_db(-26), 120)
+// // //     );
 
-const vec3 formant_tenor_o[5] = vec3[](
-        vec3(400, from_db(0), 40),
-        vec3(800, from_db(-10), 80),
-        vec3(2600, from_db(-12), 100),
-        vec3(2800, from_db(-12), 120),
-        vec3(3000, from_db(-26), 120)
+// const vec3 formant_tenor_o[5] = vec3[](
+//         // vec3(400, from_db(0), 40),
+//         // vec3(800, from_db(-10), 80),
+//         // vec3(2600, from_db(-12), 100),
+//         // vec3(2800, from_db(-12), 120),
+//         // vec3(3000, from_db(-26), 120)
+//         // CREDIT: ChatGPT also did these for me. Blind trust.
+//         vec3(400, 1.00, 40),
+//         vec3(800, 0.32, 80),
+//         vec3(2600, 0.25, 100),
+//         vec3(2800, 0.25, 120),
+//         vec3(3000, 0.05, 120)
+//     );
+
+// NOTE: Shader minifier has problems with the above construction
+//  This is formant_tenor_a and formant_tenor_o
+const vec3 formant_table[10] = vec3[](
+        vec3(650, 1.00, 80),
+        vec3(1080, 0.50, 90),
+        vec3(2650, 0.45, 120),
+        vec3(2900, 0.40, 130),
+        vec3(3250, 0.08, 140),
+        vec3(400, 1.00, 40),
+        vec3(800, 0.32, 80),
+        vec3(2600, 0.25, 100),
+        vec3(2800, 0.25, 120),
+        vec3(3000, 0.05, 120)
     );
 
 vec2 pad3voice(float barpos, float barnum, float note) {
@@ -546,7 +573,7 @@ vec2 pad3voice(float barpos, float barnum, float note) {
             float formant = 0.0;
             repeat(n, 5)
             {
-                formant = max(formant, filterformant(freq, mix(formant_tenor_o[n], formant_tenor_a[n], formant_glide)));
+                formant = max(formant, filterformant(freq, mix(formant_table[n + 5], formant_table[n], formant_glide)));
             }
 
             magnitude *= 0.0 + 1.0 * formant;
@@ -572,10 +599,14 @@ float beat_comp(float block, float bar, float beat) {
 }
 
 vec2 mainSound(int samp_in, float time_in) {
+    const int InitialQuietSamples = int(SAMPLES_PER_SEC * 0.5);
+    if (samp_in < InitialQuietSamples)
+        return vec2(0.0);
+
     // int samp_offset = 0;
     int samp_offset = (SAMPLES_PER_BEAT * 4) * 0;
 
-    vec4 time = vec4((samp_in + samp_offset) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
+    vec4 time = vec4((samp_in + samp_offset - InitialQuietSamples) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 beat = time * BPS;
 
     float block = floor(beat.w / 64.0);
@@ -613,7 +644,9 @@ vec2 mainSound(int samp_in, float time_in) {
     }
 
     // A 440 Hz wave that attenuates quickly over time
-    vec2 O = vec2(0.f);
+    // vec2 O = vec2(sin(time.z * TAU * 440.0) * 0.1);
+    vec2 O = vec2(0.);
+
     if (true) {
         O += enable_kick * kick((beat.y - 0.) * B2T);
         O += enable_kick * dirtykick2((beat.y - 2.5) * B2T);
@@ -644,7 +677,6 @@ vec2 mainSound(int samp_in, float time_in) {
     percsidechain = 1.0 - tanh(percsidechain * 1.5);
 
     // O = vec2(0.0);
-
     O += snare2((beat.w - 63.5) * B2T, time.w + 0.789);
 
     float pad_switch_beat = mod(beat.z - 24.0, 32.0); // Last 2 bar in half block
