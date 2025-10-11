@@ -433,7 +433,7 @@ vec2 pad(float barpos, float note) {
 
     vec2 V = vec2(0.0);
 
-    const int NUM_MODES = 40;
+    const int NUM_MODES = 30;
     repeat(mode, NUM_MODES)
     {
         vec3 mode_r = hash3f_normalized(vec3(mode * 13.1 + 9.9128783));
@@ -624,7 +624,7 @@ vec2 mainSound(int samp_in, float time_in) {
 
     // float enable_wah = ((block == 1.0 && bar_in_block_unfloor >= 14.5) || (block >= 2.0 && (block <= 5.0 || (block == 5.0 && bar_in_block_unfloor < 2.25)))) ? 1.0 : 0.0;
     float enable_wah = (beat.w >= beat_comp(1.0, 14.5, 0.0) && beat.w < beat_comp(5.0, 2.25, 0.0)) ? 1.0 : 0.0;
-    float enable_kick = (block >= 1.0 && block != 3.0 && block <= 4.0) ? 1.0 : 0.0;
+    float enable_kick = (block >= 1.0 && block <= 4.0) ? 1.0 : 0.0;
     float enable_snare = ((block >= 1.0 && block != 3.0 && block <= 4.0) ? 1.0 : 0.0);
     float enable_snare2 = enable_snare * ((block >= 4.0 && block <= 6.0) ? 1.0 : 0.0);
     float enable_hihat = (block < 5.0) ? 1.0 : 0.0;
@@ -648,9 +648,10 @@ vec2 mainSound(int samp_in, float time_in) {
     vec2 O = vec2(0.);
 
     if (true) {
-        O += enable_kick * kick((beat.y - 0.) * B2T);
-        O += enable_kick * dirtykick2((beat.y - 2.5) * B2T);
-        O += enable_snare * snare2((beat.y - 1.) * B2T, time.w + 0.789);
+        float drum_gain = 0.85;
+        O += enable_kick * kick((beat.y - 0.) * B2T) * drum_gain;
+        O += enable_kick * dirtykick2((beat.y - 2.5) * B2T) * drum_gain;
+        O += enable_snare * snare2((beat.y - 1.) * B2T, time.w + 0.789) * drum_gain;
         // O += enable_snare2 * snare2((beat.y - 3.) * B2T, time.w + 0.451);
 
         // Another possibility - part of this is cutoff because it doesn't wrap time, so just cuts off
@@ -701,31 +702,74 @@ vec2 mainSound(int samp_in, float time_in) {
     // End WAs, play fnuque
 
     // TODO: n tweaking is good!!!
-    if (enable_wah >= 0.0) {
-        if (block <= 3.0) {
-            repeat(n, 5)
-            {
-                float note = 52.0;
-                if (n == 3) {
-                    note = 55.0;
-                    if (pad_switch_beat < 4.0)
-                    {
-                        note = 57.0;
-                    }
-                    // On pitch down pad, use 57.0
-                }
+    if (enable_wah > 0.0) {
+        float wah_beat = mod(beat.z - 4.0, 8.0);
+        float wah_beat_num = floor((beat.z - 4.0) / 8.0);
+        #define WAH(offset, note, pan, gain) if (wah_beat >= offset) { wahNote = note; wahNoteBeat = wah_beat - offset; wahPan = pan; wahGain = gain;  }
+        float wahNote = 0.0;
+        float wahNoteBeat = 0.0;
+        float wahPan = 0.0;
+        float wahGain = 0.0;
 
-                float pan_ = 0.5;
-                if (n == 0) {}
-                else if (mod(n, 2) == 0) {
-                    pan_ = 0.1;
-                }
-                else if (mod(n, 2) == 1) {
-                    pan_ = 0.9;
-                }
-                O += enable_wah * 0.8 * pad3voice(mod(beat.z - 4.0 - n * 1.0, 8.0), floor((beat.z - 4.0) / 8.0), note) * exp(-n * 0.3) * pan(pan_, -4.5);
+        if (block <= 3.0) {
+            // repeat(n, 5)
+            // {
+            //     float note = 52.0;
+            //     if (n == 3) {
+            //         note = 55.0;
+            //         if (pad_switch_beat < 4.0)
+            //         {
+            //             note = 57.0;
+            //         }
+            //         // On pitch down pad, use 57.0
+            //     }
+
+            //     float pan_ = 0.5;
+            //     if (n == 0) {}
+            //     else if (mod(n, 2) == 0) {
+            //         pan_ = 0.1;
+            //     }
+            //     else if (mod(n, 2) == 1) {
+            //         pan_ = 0.9;
+            //     }
+            //     O += enable_wah * 0.8 * pad3voice(mod(beat.z - 4.0 - n * 1.0, 8.0), floor((beat.z - 4.0) / 8.0), note) * exp(-n * 0.3) * pan(pan_, -4.5);
+            // }
+
+            float half_block = floor(beat.w / 32.0);
+            float pad_switch_beat = mod(beat.z - 24.0, 32.0); // Last 2 bar in half block
+            float pad_switch_env =
+                (half_block >= 5.0 && half_block <= 7.0) ? linearenvwithhold(pad_switch_beat + 0.6, 0.6, 8.0, 0.6) : 0.0;
+
+            float offset = 1.0;
+            float offset_global_beat = beat.w + offset;
+            float offset_half_block = offset_global_beat / 32.0;
+
+            // float unfloored_half_block = offset_half_block
+
+            bool modulated_pad = (offset_half_block >= 5.0 && offset_half_block < 8.0) && (mod(offset_half_block, 1.0) > 0.75);
+
+            if (!modulated_pad) {
+                WAH(0, 52, 0.5, exp(-0.0 * 0.3)) // E-2
+                WAH(1, 52, 0.9, exp(-1.0 * 0.3))
+                WAH(2, 52, 0.1, exp(-2.0 * 0.3))
+                WAH(3, 55, 0.9, exp(-3.0 * 0.3)) // G-2
+                WAH(4, 52, 0.1, exp(-4.0 * 0.3))
+            } else {
+                WAH(0, 50, 0.5, exp(-0.0 * 0.3)) // D-2
+                WAH(1, 50, 0.9, exp(-1.0 * 0.3))
+                WAH(2, 50, 0.1, exp(-2.0 * 0.3))
+                WAH(3, 57, 0.9, exp(-3.0 * 0.3)) // A-2
+                WAH(4, 50, 0.1, exp(-4.0 * 0.3))
             }
+        } else {
+            // Move to different rythm
+            float wah_beat = mod(beat.z, 4.0);
+            wah_beat_num *= 2.0;
+            WAH(0, 52, 0.5, exp(-1.0 * 0.3))
+            WAH(2.0, 52, 0.5, exp(-2.0 * 0.3))
+            WAH(2.5, 55, 0.5, exp(-0.0 * 0.3))
         }
+        O += 0.8 * pad3voice(wahNoteBeat, wah_beat_num, wahNote) * wahGain * pan(wahPan, -4.5);
     }
     // O += pad2voice(mod(beat.z, 8.0) - 1.5 - 0.125).yx * 0.5 * percsidechain;
 
