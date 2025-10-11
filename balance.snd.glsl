@@ -627,12 +627,13 @@ vec2 mainSound(int samp_in, float time_in) {
     float enable_kick = (block >= 1.0 && block <= 4.0) ? 1.0 : 0.0;
     float enable_snare = ((block >= 1.0 && block != 3.0 && block <= 4.0) ? 1.0 : 0.0);
     float enable_snare2 = enable_snare * ((block >= 4.0 && block <= 6.0) ? 1.0 : 0.0);
-    float enable_hihat = (block < 5.0) ? 1.0 : 0.0;
+    float enable_hihat = (block < 5.0 && block != 3.0) ? 1.0 : 0.0;
     float enable_sweep = block >= 1.0 && block < 5.0 ? 1.0 : 0.0;
     // float enable_kick = block > 0.
 
     float enable_block_last_bar = (block == 1.0 && bar_in_block_unfloor >= 14.0) ? 0.0 : 1.0;
-    enable_kick *= enable_block_last_bar;
+    float filter_kicks_last_bar_break = (block == 3.0 && bar_in_block_unfloor >= 14.0) ? 0.0 : 1.0;
+    enable_kick *= enable_block_last_bar * filter_kicks_last_bar_break;
     enable_snare *= enable_block_last_bar;
     enable_hihat *= enable_block_last_bar;
 
@@ -678,7 +679,9 @@ vec2 mainSound(int samp_in, float time_in) {
     percsidechain = 1.0 - tanh(percsidechain * 1.5);
 
     // O = vec2(0.0);
-    O += snare2((beat.w - 63.5) * B2T, time.w + 0.789);
+    // Snares leading into body sections
+    O += snare2((beat.w - 64.0 + 0.5) * B2T, time.w + 0.789);
+    // O += snare2((beat.w - 256.0 + 0.5) * B2T, time.w + 0.789);
 
     float pad_switch_beat = mod(beat.z - 24.0, 32.0); // Last 2 bar in half block
     float pad_switch_env =
@@ -735,16 +738,9 @@ vec2 mainSound(int samp_in, float time_in) {
             //     O += enable_wah * 0.8 * pad3voice(mod(beat.z - 4.0 - n * 1.0, 8.0), floor((beat.z - 4.0) / 8.0), note) * exp(-n * 0.3) * pan(pan_, -4.5);
             // }
 
-            float half_block = floor(beat.w / 32.0);
-            float pad_switch_beat = mod(beat.z - 24.0, 32.0); // Last 2 bar in half block
-            float pad_switch_env =
-                (half_block >= 5.0 && half_block <= 7.0) ? linearenvwithhold(pad_switch_beat + 0.6, 0.6, 8.0, 0.6) : 0.0;
-
             float offset = 1.0;
             float offset_global_beat = beat.w + offset;
             float offset_half_block = offset_global_beat / 32.0;
-
-            // float unfloored_half_block = offset_half_block
 
             bool modulated_pad = (offset_half_block >= 5.0 && offset_half_block < 8.0) && (mod(offset_half_block, 1.0) > 0.75);
 
