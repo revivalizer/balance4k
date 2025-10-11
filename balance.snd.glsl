@@ -582,7 +582,8 @@ vec2 pad3voice(float barpos, float barnum, float note) {
             magnitude *= env;
 
             float Q = mode_magnitude * magnitude * sin(TAU * freq * t + r.z * TAU);
-            V += Q * pan(r.y * 0.5 + 0.5, -4.5);
+            // V += Q * pan(r.y * 0.5 + 0.5, -4.5);
+            V += Q * pan(step(r.y, 0.0), -4.5);
         }
     }
 
@@ -746,22 +747,22 @@ vec2 mainSound(int samp_in, float time_in) {
 
             if (!modulated_pad) {
                 WAH(0, 52, 0.5, exp(-0.0 * 0.3)) // E-2
-                WAH(1, 52, 0.9, exp(-1.0 * 0.3))
-                WAH(2, 52, 0.1, exp(-2.0 * 0.3))
-                WAH(3, 55, 0.9, exp(-3.0 * 0.3)) // G-2
-                WAH(4, 52, 0.1, exp(-4.0 * 0.3))
+                WAH(1, 52, 0.6, exp(-1.0 * 0.3))
+                WAH(2, 52, 0.3, exp(-2.0 * 0.3))
+                WAH(3, 55, 0.7, exp(-3.0 * 0.3)) // G-2
+                WAH(4, 52, 0.2, exp(-4.0 * 0.3))
             } else {
                 WAH(0, 50, 0.5, exp(-0.0 * 0.3)) // D-2
-                WAH(1, 50, 0.9, exp(-1.0 * 0.3))
-                WAH(2, 50, 0.1, exp(-2.0 * 0.3))
-                WAH(3, 57, 0.9, exp(-3.0 * 0.3)) // A-2
-                WAH(4, 50, 0.1, exp(-4.0 * 0.3))
+                WAH(1, 50, 0.6, exp(-1.0 * 0.3))
+                WAH(2, 50, 0.3, exp(-2.0 * 0.3))
+                WAH(3, 57, 0.7, exp(-3.0 * 0.3)) // A-2
+                WAH(4, 50, 0.2, exp(-4.0 * 0.3))
             }
         } else {
             // Move to different rythm
             float wah_beat = mod(beat.z, 4.0);
             wah_beat_num *= 2.0;
-            WAH(0, 52, 0.5, exp(-1.0 * 0.3))
+            WAH(0, 52, 0.5, exp(-2.0 * 0.3))
             WAH(2.0, 52, 0.5, exp(-2.0 * 0.3))
             WAH(2.5, 55, 0.5, exp(-0.0 * 0.3))
         }
