@@ -433,11 +433,11 @@ vec2 pad(float barpos, float note) {
 
     vec2 V = vec2(0.0);
 
-    const int NUM_MODES = 30;
+    const int NUM_MODES = 40;
     repeat(mode, NUM_MODES)
     {
         vec3 mode_r = hash3f_normalized(vec3(mode * 13.1 + 9.9128783));
-        float mode_magnitude = pow(2.0, 1.5 * mode_r.x * sin(TAU * (0.02 + 0.13 * mode_r.y) * t + mode_r.z));
+        float mode_magnitude = pow(2.0, (1.5 + 3.0 * mode / float(NUM_MODES)) * mode_r.x * sin(TAU * (0.02 + 0.13 * mode_r.y) * t + mode_r.z));
 
         const int NUM_HARMONICS_PER_MODE = 19;
         repeat(harmonic, NUM_HARMONICS_PER_MODE)
