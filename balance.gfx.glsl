@@ -417,6 +417,17 @@ void main() {
     float e0_rounding_multiplier = 6.0; // 1->30 are interesting
     vec3 e0_d = normalize(vec3(uv, -e0_FOV));
 
+    float s1_FOV = 0.5; // 0.5 is good, 1 2 also work;
+    float s1_x_rot = time * 0.1;
+    float s1_look_rot = 0.3; // PI*0.5 is also interesting
+    float s1_sphereness = 0.2 + 1.4 * sin(time * 0.1);
+    float s1_planeness = 0.5 + sin(time * 0.19);
+    // float sphereness = 0.5;
+    // float planenses = 3.5;
+    float s1_wildness = 3.5;
+    float s1_rounding_multiplier = 2.7; // 0.3, 0.7, 8 good, 192 good
+    vec3 s1_d = normalize(vec3(uv, -s1_FOV));
+
     float s2_FOV = 0.2;
     float s2_x_rot = music_time.w * 0.1;
     float s2_look_rot = 0.6;
@@ -450,6 +461,24 @@ void main() {
 
         //     outColor = fade_in * scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
         // }
+
+        // TWO VARIANTS
+        if (false) {
+            if (step.w >= 64.0 && step.w < 192.0) {
+                float effect_time = (music_time.w - 64.0 * B2T) * 1.5 + 31.0;
+                float warp_time = effect_time * 1.2;
+                float s1_sphereness = 0.2 + 1.4 * sin(warp_time * 0.1);
+                float s1_planeness = 0.5 + sin(warp_time * 0.19);
+                outColor = scene1(R(s1_x_rot, 0) * R(s1_look_rot, 1) * s1_d, effect_time * 0.4, s1_sphereness, s1_planeness, s1_wildness, s1_rounding_multiplier);
+            }
+        } else {
+            if (step.w >= 64.0 && step.w < 192.0) {
+                float effect_time = (music_time.w - 64.0 * B2T) * 1.0 + 31.0;
+                float s1_sphereness = 0.2 + 1.4 * sin(effect_time * 0.1);
+                float s1_planeness = 0.5 + sin(effect_time * 0.19);
+                outColor = scene1(R(s1_x_rot, 0) * R(s1_look_rot, 1) * s1_d, effect_time, s1_sphereness, s1_planeness, s1_wildness, s1_rounding_multiplier);
+            }
+        }
         if (step.w >= 192.0 && step.w < 256.0) {
             float effect_time = (music_time.w - 192.0 * B2T) * 1.0 + 2.0;
             e0_sphereness = -0.1 + 0.2 * sin(-0.2 + effect_time * 0.120); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
@@ -477,18 +506,8 @@ void main() {
     }
 
     if (false) {
-        float FOV = 0.5; // 0.5 is good, 1 2 also work;
-        float x_rot = time * 0.1;
-        float look_rot = 0.3; // PI*0.5 is also interesting
-        float sphereness = 0.2 + 1.4 * sin(time * 0.1);
-        float planeness = 0.5 + sin(time * 0.19);
-        // float sphereness = 0.5;
-        // float planenses = 3.5;
-        float wildness = 3.5;
-        float rounding_multiplier = 0.7; // 0.3, 0.7, 8 good, 192 good
-
-        vec3 d = normalize(vec3(uv, -FOV));
-        outColor = scene1(R(x_rot, 0) * R(look_rot, 1) * d, time, sphereness, planeness, wildness, rounding_multiplier);
+        float effect_time = time;
+        outColor = scene1(R(s1_x_rot, 0) * R(s1_look_rot, 1) * s1_d, effect_time, s1_sphereness, s1_planeness, s1_wildness, s1_rounding_multiplier);
     }
 
     if (false) {
