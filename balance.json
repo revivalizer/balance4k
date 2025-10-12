@@ -32,8 +32,8 @@
 		"swapInterval":	2
 	},
 	"preferenceSettings":	{
-		"enableAutoRestartByGraphicsShader":	true,
-		"enableAutoRestartBySoundShader":	true
+		"enableAutoRestartByGraphicsShader":	false,
+		"enableAutoRestartBySoundShader":	false
 	},
 	"executableExportSettings":	{
 		"fileName":	".\\balance.exe",

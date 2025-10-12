@@ -19,6 +19,17 @@ layout(location = 3) uniform vec2 resolution;
 
 out vec4 outColor;
 
+const float BPM = 170;
+const float BPS = BPM / 60.f;
+
+const float SAMPLES_PER_SEC = 48000.; // 48000 in minimal_gl
+
+const int SAMPLES_PER_STEP = int(SAMPLES_PER_SEC / BPS / 4.0);
+const int SAMPLES_PER_BEAT = 4 * SAMPLES_PER_STEP;
+
+const float T2B = BPS;
+const float B2T = 1.0 / BPS;
+
 const float PI = 3.14159265358979323846;
 const float TAU = 2 * PI;
 
@@ -40,7 +51,7 @@ mat3 rotateX(float x) {
 //       So we manually set the last entry and hope the uninitialized matrix is all zeroes
 mat3 R(float x, int o) {
     vec2 v = sincos(x);
-    int a = o, b = (o + 1) % 3,c = (o + 2) % 3;
+    int a = o, b = (o + 1) % 3, c = (o + 2) % 3;
     mat3 m = mat3(0.0);
     m[a][a] = v.x;
     m[b][a] = v.y;
@@ -375,29 +386,65 @@ vec4 scene2(vec3 dir, float time, float rounding_multiplier) {
 void main() {
     vec2 uv = (gl_FragCoord.xy * 2 - resolution) / resolution.yy;
 
+    const int InitialQuietSamples = int(SAMPLES_PER_SEC * 0.5);
+    if (waveOutPosition < InitialQuietSamples) {
+        outColor = vec4(vec3(0.0), 1.0);
+        return;
+    }
+
+    // vec4 time = vec4((waveOutPosition + samp_offset - InitialQuietSamples) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
+    vec4 music_time = vec4((waveOutPosition - InitialQuietSamples) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
+    vec4 step = music_time * BPS;
+    vec4 beat = step / 4.0;
+
+    vec3 e0_p = vec3(0.);
+    e0_p.z -= music_time.w * 0.4;
+
+    float e0_FOV = 2.0; // 1.0 Is nice initially, but for sphereness animation, higher is better probably
+    float e0_x_rot = music_time.w * 0.1;
+    float e0_look_rot = PI; // Looking backwards in z is nice
+    float e0_sphereness = -0.1 + sin(music_time.w * 0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
+    // OKAY, the above animation is MEGANICE
+    // float sphereness = 0.0;
+    // float noisyness = 10.0; // Values up to 10 look interesting
+    // If we tweak multiplier in tanh filter, we loose outer edges/interesting behaviour
+    float e0_noisyness = 1.0; // Values up to 10 look interesting, more animating
+    // float exposure = 1e2;
+    float e0_exposure = 1e2;
+    float e0_wildness = 0.5;
+    // float wildness = 1.5; // Also good
+    // float wildness = 0.01; // Extremely low values of this are also nice!
+    float e0_rounding_multiplier = 6.0; // 1->30 are interesting
+    vec3 e0_d = normalize(vec3(uv, -e0_FOV));
+
+    float s2_FOV = 0.2;
+    float s2_x_rot = music_time.w * 0.1;
+    float s2_look_rot = 0.6;
+    float s2_rounding_multiplier = 1.0 / 1.0; // 1/8, 1, 8 works
+    vec3 s2_d = normalize(vec3(uv, -s2_FOV));
+
+    // Default scene 0
     if (false) {
-        vec3 p = vec3(0.);
-        p.z -= time * 0.4;
+        outColor = scene0(e0_p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, time, e0_sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
+    }
 
-        float FOV = 2.0; // 1.0 Is nice initially, but for sphereness animation, higher is better probably
-        float x_rot = time * 0.1;
-        float look_rot = PI; // Looking backwards in z is nice
-        // float sphereness = -0.1 + sin(time*0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
-        // OKAY, the above animation is MEGANICE
-        float sphereness = 0.0;
-        // float noisyness = 10.0; // Values up to 10 look interesting
-        // If we tweak multiplier in tanh filter, we loose outer edges/interesting behaviour
-        float noisyness = 1.0; // Values up to 10 look interesting, more animating
-        // float exposure = 1e2;
-        float exposure = 1e2;
-        float wildness = 0.5;
-        // float wildness = 1.5; // Also good
-        // float wildness = 0.01; // Extremely low values of this are also nice!
-        float rounding_multiplier = 6.0; // 1->30 are interesting
+    if (true) {
+        if (step.w >= 0.0 && step.w < 56.0) {
+            float s2_FOV = 1.2;
+            vec3 s2_d = normalize(vec3(uv, -s2_FOV));
+            float s2_look_rot = 1.2 - music_time.w * 0.05;
+            outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, music_time.w, s2_rounding_multiplier);
+        }
 
-        vec3 d = normalize(vec3(uv, -FOV));
+        if (step.w >= 56.0 && step.w < 64.0) {
+            float effect_time = (music_time.w - 56.0 * B2T) * 2.0 - 4.5;
+            float sphereness = -0.1 + sin(effect_time * 0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
 
-        outColor = scene0(p, R(x_rot, 0) * R(look_rot, 1) * d, time, sphereness, noisyness, exposure, wildness, rounding_multiplier);
+            vec3 p = vec3(0.);
+            p.z -= effect_time * 0.5 * 0.4;
+
+            outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
+        }
     }
 
     if (false) {
@@ -415,7 +462,7 @@ void main() {
         outColor = vec4(col, 1.0);
     }
 
-    if (true) {
+    if (false) {
         float FOV = 0.5; // 0.5 is good, 1 2 also work;
         float x_rot = time * 0.1;
         float look_rot = 0.3; // PI*0.5 is also interesting
@@ -431,13 +478,7 @@ void main() {
     }
 
     if (false) {
-        float FOV = 0.2;
-        float x_rot = time * 0.1;
-        float look_rot = 0.6;
-        float rounding_multiplier = 1.0 / 1.0; // 1/8, 1, 8 works
-
-        vec3 d = normalize(vec3(uv, -FOV));
-        outColor = scene2(R(x_rot, 0) * R(look_rot, 1) * d, time, rounding_multiplier);
+        outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, music_time.w, s2_rounding_multiplier);
     }
 }
 
