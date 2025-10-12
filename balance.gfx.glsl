@@ -374,7 +374,7 @@ vec4 scene2(vec3 dir, float time, float rounding_multiplier) {
 
         // color: 1.+cos so we don't go negative, cos(d+vec4(6,4,2,0)) samples from the palette
         // divide by s for form and distance
-        o += (1. + cos(p.z + vec4(3, 4, 2, 0))) / s;
+        o += (1.0 + cos(p.z + vec4(3, 4, 2, 0))) / s;
     }
 
     // tonemap and divide brightness
@@ -429,21 +429,35 @@ void main() {
     }
 
     if (true) {
-        if (step.w >= 0.0 && step.w < 56.0) {
-            float s2_FOV = 1.2;
+        if (step.w >= 0.0 && step.w < 63.0) {
+            // float s2_FOV = 1.2 + 0.1 * hash3f_normalized(vec3(floor(music_time.w * 6.0))).x;
+            float s2_FOV = 1.0; // + 0.05 * sin(music_time.w * 30.0) + 0.05 * sin(music_time.w * 27.0);
             vec3 s2_d = normalize(vec3(uv, -s2_FOV));
-            float s2_look_rot = 1.2 - music_time.w * 0.05;
-            outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, music_time.w, s2_rounding_multiplier);
+            float s2_look_rot = 1.4 - music_time.w * 0.05;
+            float dissolve_time = max(0.0, step.w - 55.0);
+            outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, music_time.w, s2_rounding_multiplier * 0.6 * pow(2.0, 0.10 * (pow(dissolve_time, 1.5))));
         }
 
-        if (step.w >= 56.0 && step.w < 64.0) {
-            float effect_time = (music_time.w - 56.0 * B2T) * 2.0 - 4.5;
-            float sphereness = -0.1 + sin(effect_time * 0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
+        // Circle closing
+        // if (step.w >= 56.0 && step.w < 64.0) {
+        //     float effect_time = (music_time.w - 56.0 * B2T) * 2.0 - 4.5;
+        //     float sphereness = -0.1 + sin(effect_time * 0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
 
-            vec3 p = vec3(0.);
-            p.z -= effect_time * 0.5 * 0.4;
+        //     vec3 p = vec3(0.);
+        //     p.z -= effect_time * 0.5 * 0.4;
 
-            outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
+        //     float fade_in = pow(smoothstep(0.0, 8.0, step.w - 56.0), 4.0);
+
+        //     outColor = fade_in * scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
+        // }
+        if (step.w >= 192.0 && step.w < 256.0) {
+            float effect_time = (music_time.w - 192.0 * B2T) * 1.0 + 2.0;
+            e0_sphereness = -0.1 + 0.2 * sin(-0.2 + effect_time * 0.120); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
+
+            // vec3 p = vec3(0.);
+            // p.z -= effect_time * 0.5 * 0.4;
+
+            outColor = scene0(-e0_p + 5.0 * 0.15 * (effect_time - 5.0), R(e0_x_rot + 1.8, 0) * R(e0_look_rot + 0.4 * effect_time / 20.0, 1) * e0_d, music_time.w * 0.1, e0_sphereness, e0_noisyness, e0_exposure * 2.5, e0_wildness, e0_rounding_multiplier);
         }
     }
 
@@ -480,6 +494,11 @@ void main() {
     if (false) {
         outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, music_time.w, s2_rounding_multiplier);
     }
+
+    vec2 uv2 = (gl_FragCoord.xy * 2 - resolution) / resolution.xy;
+    outColor.xyz += 0.005 * hash3f_normalized(vec3(uv2, music_time.w));
+    outColor.xyz = sqrt(sqrt(outColor.xyz));
+    outColor.xyz *= clamp(1.5 - 1.1 * length(uv2), 0.05, 1.0);
 }
 
 // /*
