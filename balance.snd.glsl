@@ -612,7 +612,7 @@ vec2 mainSound(int samp_in, float time_in) {
 
     float block = floor(beat.w / 64.0);
     float half_block = floor(beat.w / 32.0);
-    float bar_in_block_unfloor = floor(beat.z / 4.0);
+    float bar_in_block_unfloor = beat.z / 4.0;
     float bar_in_block = floor(bar_in_block_unfloor);
 
     float is_intro_1 = block == 0 ? 1.0 : 0.0;
