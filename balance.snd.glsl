@@ -593,10 +593,6 @@ vec2 pad3voice(float barpos, float barnum, float note) {
     return V * 0.4;
 }
 
-// IDEAS: Gatet effekt paa wah
-//        Crowds ?
-//        Ekstra snare paa hver 4 beat (sidste)
-
 float beat_comp(float block, float bar, float beat) {
     return (block * 16.0 + bar) * 4.0 + beat;
 }
@@ -606,41 +602,30 @@ vec2 mainSound(int samp_in, float time_in) {
     if (samp_in < InitialQuietSamples)
         return vec2(0.0);
 
-    // int samp_offset = 0;
     int samp_offset = (SAMPLES_PER_BEAT * 4) * 0;
 
     ivec4 sample_index = ivec4(samp_in + samp_offset - InitialQuietSamples) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536));
     vec4 time = vec4(sample_index) / SAMPLES_PER_SEC;
     vec4 beat = time * BPS;
 
-    // TODO: Should convert these to int for higher precision
     float block = float(sample_index.w / (SAMPLES_PER_BEAT * 64));
     float half_block = float(sample_index.w / (SAMPLES_PER_BEAT * 32));
     float bar_in_block_unfloor = float(sample_index.z) / float((SAMPLES_PER_BEAT * 4));
     float bar_in_block = float(sample_index.z / (SAMPLES_PER_BEAT * 4));
 
-    float is_intro_1 = block == 0 ? 1.0 : 0.0;
-    float is_intro_2 = block == 1 ? 1.0 : 0.0;
-    // float is_intro = is_intro_1 + is_intro_2;
-
-    // float enable_bass = block >= 2.0 ? 1.0 : 0.0;
-    float enable_bass = 0.0;
     float enable_pad = block < 5.0 ? 1.0 : 0.0;
 
     // float enable_wah = ((block == 1.0 && bar_in_block_unfloor >= 14.5) || (block >= 2.0 && (block <= 5.0 || (block == 5.0 && bar_in_block_unfloor < 2.25)))) ? 1.0 : 0.0;
     float enable_wah = (beat.w >= beat_comp(1.0, 14.5, 0.0) && beat.w < beat_comp(5.0, 2.25, 0.0)) ? 1.0 : 0.0;
     float enable_kick = (block >= 1.0 && block <= 4.0) ? 1.0 : 0.0;
     float enable_snare = ((block >= 1.0 && block != 3.0 && block <= 4.0) ? 1.0 : 0.0);
-    float enable_snare2 = enable_snare * ((block >= 4.0 && block <= 6.0) ? 1.0 : 0.0);
     // float enable_hihat = (block < 5.0 && block != 3.0) ? 1.0 : 0.0;
     float enable_hihat = (block < 5.0) ? 1.0 : 0.0;
     float enable_sweep = block >= 1.0 && block < 5.0 ? 1.0 : 0.0;
-    // float enable_kick = block > 0.
 
-    float enable_block_last_bar_kick = (block == 1.0 && bar_in_block_unfloor >= 14.) ? 0.0 : 1.0;
     float enable_block_last_bar = (block == 1.0 && bar_in_block_unfloor >= 14.) ? 0.0 : 1.0;
     float filter_kicks_last_bar_break = (block == 3.0 && bar_in_block_unfloor >= 14.) ? 0.0 : 1.0;
-    enable_kick *= enable_block_last_bar_kick * filter_kicks_last_bar_break;
+    enable_kick *= enable_block_last_bar * filter_kicks_last_bar_break;
     enable_snare *= enable_block_last_bar;
     enable_hihat *= enable_block_last_bar;
 
@@ -660,9 +645,7 @@ vec2 mainSound(int samp_in, float time_in) {
         O += enable_kick * kick((beat.y) * B2T) * drum_gain;
         O += enable_kick * dirtykick2((beat.y - 2.5) * B2T) * drum_gain;
         O += enable_snare * snare2((beat.y - 1.) * B2T, time.w + 0.789) * drum_gain;
-        // O += enable_snare2 * snare2((beat.y - 3.) * B2T, time.w + 0.451);
 
-        // Another possibility - part of this is cutoff because it doesn't wrap time, so just cuts off
         if ((altbar == false || beat.w < 32.0) && beat.w > 32.0) {
             O += enable_hihat * 1.0 * hihat2((beat.x + 0.25) * B2T, beat.x * 2., time.y + 0.123);
             O += enable_hihat * 1.0 * hihat2((beat.x - 0.50) * B2T, beat.x * 2., time.w + 0.456); // Time wraps at the end...
@@ -707,12 +690,6 @@ vec2 mainSound(int samp_in, float time_in) {
 
     O += enable_sweep * sweep((beat.z - 16.0) * B2T) * 0.7;
 
-    // FADEOUT
-    // PAD + WAs
-    // WAs trigger word
-    // End WAs, play fnuque
-
-    // TODO: n tweaking is good!!!
     if (true && enable_wah > 0.0) {
         float wah_beat = mod(beat.z - 4.0, 8.0);
         float wah_beat_num = floor((beat.z - 4.0) / 8.0);
@@ -723,29 +700,6 @@ vec2 mainSound(int samp_in, float time_in) {
         float wahGain = 0.0;
 
         if (block <= 3.0) {
-            // repeat(n, 5)
-            // {
-            //     float note = 52.0;
-            //     if (n == 3) {
-            //         note = 55.0;
-            //         if (pad_switch_beat < 4.0)
-            //         {
-            //             note = 57.0;
-            //         }
-            //         // On pitch down pad, use 57.0
-            //     }
-
-            //     float pan_ = 0.5;
-            //     if (n == 0) {}
-            //     else if (mod(n, 2) == 0) {
-            //         pan_ = 0.1;
-            //     }
-            //     else if (mod(n, 2) == 1) {
-            //         pan_ = 0.9;
-            //     }
-            //     O += enable_wah * 0.8 * pad3voice(mod(beat.z - 4.0 - n * 1.0, 8.0), floor((beat.z - 4.0) / 8.0), note) * exp(-n * 0.3) * pan(pan_, -4.5);
-            // }
-
             // TODO: Change to int, tiny clicks
             float offset = 1.0;
             float offset_global_beat = beat.w + offset;
@@ -777,22 +731,6 @@ vec2 mainSound(int samp_in, float time_in) {
         }
         O += 0.8 * pad3voice(wahNoteBeat, wah_beat_num, wahNote) * wahGain * pan(wahPan, -4.5);
     }
-    // O += pad2voice(mod(beat.z, 8.0) - 1.5 - 0.125).yx * 0.5 * percsidechain;
-
-    // O += mainbass_bar(barpos);
-    // O += gnarly1bass_bar(barpos);
-    // O += gnarly2bass_bar(barpos);
-    // O += noisebass_bar(barpos);
-
-    // O += riser2(mod(beat.z, 8.0) * B2T);
-
-    // O += noisebass(time.y, p2f(40.0)) * 0.3;
-
-    // O += shaker((beat.y-1.0)*B2T);
-    // O += shaker((beat.y-2.0)*B2T);
-    // O += shaker((beat.y-3.0)*B2T);
-
-    // O += bassline(time, beat);
 
     return 1.0 * clamp(O, -1.0, 1.0);
 }
