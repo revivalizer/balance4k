@@ -609,19 +609,13 @@ vec2 mainSound(int samp_in, float time_in) {
     // int samp_offset = 0;
     int samp_offset = (SAMPLES_PER_BEAT * 4) * 0;
 
-    int MusicSample = samp_in + samp_offset - InitialQuietSamples;
-
-    ivec4 sample_index = ivec4(MusicSample) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536));
+    ivec4 sample_index = ivec4(samp_in + samp_offset - InitialQuietSamples) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536));
     vec4 time = vec4(sample_index) / SAMPLES_PER_SEC;
     vec4 beat = time * BPS;
 
     // TODO: Should convert these to int for higher precision
-    // float block = floor(beat.w / 64.0);
-    // float half_block = floor(beat.w / 32.0);
-    // float bar_in_block_unfloor = beat.z / 4.0;
-    // float bar_in_block = floor(bar_in_block_unfloor);
-    float block = float(MusicSample / (SAMPLES_PER_BEAT * 64));
-    float half_block = float(MusicSample / (SAMPLES_PER_BEAT * 32));
+    float block = float(sample_index.w / (SAMPLES_PER_BEAT * 64));
+    float half_block = float(sample_index.w / (SAMPLES_PER_BEAT * 32));
     float bar_in_block_unfloor = float(sample_index.z) / float((SAMPLES_PER_BEAT * 4));
     float bar_in_block = float(sample_index.z / (SAMPLES_PER_BEAT * 4));
 
