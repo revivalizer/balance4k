@@ -22,9 +22,9 @@
 	},
 	"renderSettings":	{
 		"pixelFormat":	0,
-		"enableMultipleRenderTargets":	true,
+		"enableMultipleRenderTargets":	false,
 		"numEnabledRenderTargets":	4,
-		"enableBackBuffer":	true,
+		"enableBackBuffer":	false,
 		"enableMipmapGeneration":	true,
 		"textureFilter":	1,
 		"textureWrap":	1,
