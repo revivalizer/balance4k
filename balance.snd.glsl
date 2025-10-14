@@ -137,41 +137,6 @@ vec2 stereowidth(vec2 v, float w) {
     return mix(vec2((v.x + v.y) * 0.5), v, vec2(w));
 }
 
-// More insp: https://www.youtube.com/watch?v=tPRBIBl5--w
-// vec2 dirtykick(float t) {
-//     if (t<0.)
-//         return vec2(0.);
-// 	vec2 V = vec2(tanh(1.4*sin(TAU*(hash3f(vec3(t)).x*0.155*exp(-t*8.0).x + 40.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*6.)));
-// 	V += hash3f(vec3(t)).xy*2.1*exp(-t*50.);
-// 	float Drive = 2.0;
-// 	V = tanh(V*Drive);
-// 	V *= abs(sin(t*45.));
-//     return V;
-// }
-
-vec2 dirtykick2(float t) {
-    if (t < 0.)
-        return vec2(0.);
-    vec2 V = vec2(tanh(1.4 * sin(TAU * (hash3f_normalized(vec3(t)).x * 0.035 * exp(-t * 10.0).x + 40.f * t + intExpPhase(t, 120.f, 10.f))) * exp(-t * 6.)));
-    V += hash3f_normalized(vec3(t)).xy * exp(-t * 50.);
-    float Drive = 2.0;
-    V = tanh(V * Drive);
-    V = stereowidth(V, 0.75);
-    // V *= abs(sin(t*45.));
-    return V;
-}
-
-vec2 kick(float t) {
-    if (t < 0.)
-        return vec2(0.);
-    vec2 V = vec2(tanh(1.4 * sin(TAU * (40.f * t + intExpPhase(t, 120.f, 10.f))) * exp(-t * 10.)));
-    V += hash3f_normalized(vec3(t)).xy * exp(-t * 50.);
-    float Drive = 2.0;
-    V = tanh(V * Drive);
-    V *= abs(sin(t * 15.)); // Ok, this is a little luck, gives a nice bounce
-    return V;
-}
-
 float linearenv_curve(float edge0, float edge1, float x) {
     return clamp((x - edge0) / (edge1 - edge0), 0., 1.);
 }
@@ -200,6 +165,42 @@ float linearenvexp(float t, float attack, float kappa) {
     } else {
         return exp(-(t - attack) * kappa);
     }
+}
+
+// More insp: https://www.youtube.com/watch?v=tPRBIBl5--w
+// vec2 dirtykick(float t) {
+//     if (t<0.)
+//         return vec2(0.);
+// 	vec2 V = vec2(tanh(1.4*sin(TAU*(hash3f(vec3(t)).x*0.155*exp(-t*8.0).x + 40.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*6.)));
+// 	V += hash3f(vec3(t)).xy*2.1*exp(-t*50.);
+// 	float Drive = 2.0;
+// 	V = tanh(V*Drive);
+// 	V *= abs(sin(t*45.));
+//     return V;
+// }
+
+vec2 dirtykick2(float t) {
+    if (t < 0.)
+        return vec2(0.);
+    vec2 V = vec2(tanh(1.4 * sin(TAU * (hash3f_normalized(vec3(t)).x * 0.035 * exp(-t * 10.0).x + 40.f * t + intExpPhase(t, 120.f, 10.f))) * exp(-t * 6.)));
+    V += hash3f_normalized(vec3(t)).xy * exp(-t * 50.);
+    float Drive = 2.0;
+    V = tanh(V * Drive);
+    V = stereowidth(V, 0.75);
+    V *= linearenv_curve(1.5, 1.4, t * T2B); // Fade out, exp too slow, yields click
+    // V *= abs(sin(t*45.));
+    return V;
+}
+
+vec2 kick(float t) {
+    if (t < 0.)
+        return vec2(0.);
+    vec2 V = vec2(tanh(1.4 * sin(TAU * (40.f * t + intExpPhase(t, 120.f, 10.f))) * exp(-t * 10.)));
+    V += hash3f_normalized(vec3(t)).xy * exp(-t * 50.);
+    float Drive = 2.0;
+    V = tanh(V * Drive);
+    V *= abs(sin(t * 15.)); // Ok, this is a little luck, gives a nice bounce
+    return V;
 }
 
 // Inspiration: https://www.youtube.com/watch?v=tofBTvc3uT8
@@ -338,13 +339,14 @@ vec2 shaker(float t) {
     repeat(n, N)
     {
         float tap = hp_tap(n, N, 5000.0) * blackman(n, N);
-        V += hash3f_normalized(vec3(t + float(n) / SAMPLES_PER_SEC + 0.997)).xy * vec2(tap);
+        V += hash3f_normalized(vec3(t + float(n) / SAMPLES_PER_SEC + vec3(1.997, 2.33, 44.2))).xy * vec2(tap);
     }
 
     float env = 0.0
             + 0.8 * linearenv(t, 0.005, 0.105)
             + 0.1 * linearenv(t - 0.110, 0.015, 0.110)
             + 0.2 * linearenv(t - 0.235, 0.010, 0.140);
+    ;
 
     V *= env;
     // V *= env(t, 5e-2, 0.4);
@@ -607,13 +609,21 @@ vec2 mainSound(int samp_in, float time_in) {
     // int samp_offset = 0;
     int samp_offset = (SAMPLES_PER_BEAT * 4) * 0;
 
-    vec4 time = vec4((samp_in + samp_offset - InitialQuietSamples) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
+    int MusicSample = samp_in + samp_offset - InitialQuietSamples;
+
+    ivec4 sample_index = ivec4(MusicSample) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536));
+    vec4 time = vec4(sample_index) / SAMPLES_PER_SEC;
     vec4 beat = time * BPS;
 
-    float block = floor(beat.w / 64.0);
-    float half_block = floor(beat.w / 32.0);
-    float bar_in_block_unfloor = beat.z / 4.0;
-    float bar_in_block = floor(bar_in_block_unfloor);
+    // TODO: Should convert these to int for higher precision
+    // float block = floor(beat.w / 64.0);
+    // float half_block = floor(beat.w / 32.0);
+    // float bar_in_block_unfloor = beat.z / 4.0;
+    // float bar_in_block = floor(bar_in_block_unfloor);
+    float block = float(MusicSample / (SAMPLES_PER_BEAT * 64));
+    float half_block = float(MusicSample / (SAMPLES_PER_BEAT * 32));
+    float bar_in_block_unfloor = float(sample_index.z) / float((SAMPLES_PER_BEAT * 4));
+    float bar_in_block = float(sample_index.z / (SAMPLES_PER_BEAT * 4));
 
     float is_intro_1 = block == 0 ? 1.0 : 0.0;
     float is_intro_2 = block == 1 ? 1.0 : 0.0;
@@ -628,20 +638,22 @@ vec2 mainSound(int samp_in, float time_in) {
     float enable_kick = (block >= 1.0 && block <= 4.0) ? 1.0 : 0.0;
     float enable_snare = ((block >= 1.0 && block != 3.0 && block <= 4.0) ? 1.0 : 0.0);
     float enable_snare2 = enable_snare * ((block >= 4.0 && block <= 6.0) ? 1.0 : 0.0);
-    float enable_hihat = (block < 5.0 && block != 3.0) ? 1.0 : 0.0;
+    // float enable_hihat = (block < 5.0 && block != 3.0) ? 1.0 : 0.0;
+    float enable_hihat = (block < 5.0) ? 1.0 : 0.0;
     float enable_sweep = block >= 1.0 && block < 5.0 ? 1.0 : 0.0;
     // float enable_kick = block > 0.
 
-    float enable_block_last_bar = (block == 1.0 && bar_in_block_unfloor >= 14.0) ? 0.0 : 1.0;
-    float filter_kicks_last_bar_break = (block == 3.0 && bar_in_block_unfloor >= 14.0) ? 0.0 : 1.0;
-    enable_kick *= enable_block_last_bar * filter_kicks_last_bar_break;
+    float enable_block_last_bar_kick = (block == 1.0 && bar_in_block_unfloor >= 14.) ? 0.0 : 1.0;
+    float enable_block_last_bar = (block == 1.0 && bar_in_block_unfloor >= 14.) ? 0.0 : 1.0;
+    float filter_kicks_last_bar_break = (block == 3.0 && bar_in_block_unfloor >= 14.) ? 0.0 : 1.0;
+    enable_kick *= enable_block_last_bar_kick * filter_kicks_last_bar_break;
     enable_snare *= enable_block_last_bar;
     enable_hihat *= enable_block_last_bar;
 
     float barpos = mod(beat.z, 4.0);
 
     bool altbar = false;
-    if ((beat.z >= 24.0 && beat.z < 32.0) || (beat.z >= 56.0 && beat.z < 64.0)) {
+    if ((beat.z >= 24.0 && beat.z < 32.0) || (beat.z >= 57.25 && beat.z < 64.0)) {
         altbar = true;
     }
 
@@ -651,14 +663,14 @@ vec2 mainSound(int samp_in, float time_in) {
 
     if (true) {
         float drum_gain = 0.85;
-        O += enable_kick * kick((beat.y - 0.) * B2T) * drum_gain;
+        O += enable_kick * kick((beat.y) * B2T) * drum_gain;
         O += enable_kick * dirtykick2((beat.y - 2.5) * B2T) * drum_gain;
         O += enable_snare * snare2((beat.y - 1.) * B2T, time.w + 0.789) * drum_gain;
         // O += enable_snare2 * snare2((beat.y - 3.) * B2T, time.w + 0.451);
 
         // Another possibility - part of this is cutoff because it doesn't wrap time, so just cuts off
         if ((altbar == false || beat.w < 32.0) && beat.w > 32.0) {
-            O += enable_hihat * 1.0 * hihat2((beat.x - 0.75 + 1.0) * B2T, beat.x * 2., time.y + 0.123);
+            O += enable_hihat * 1.0 * hihat2((beat.x + 0.25) * B2T, beat.x * 2., time.y + 0.123);
             O += enable_hihat * 1.0 * hihat2((beat.x - 0.50) * B2T, beat.x * 2., time.w + 0.456); // Time wraps at the end...
         } else {
             if (block < 5.0) {
@@ -684,6 +696,7 @@ vec2 mainSound(int samp_in, float time_in) {
     O += snare2((beat.w - 64.0 + 0.5) * B2T, time.w + 0.789);
     // O += snare2((beat.w - 256.0 + 0.5) * B2T, time.w + 0.789);
 
+    // TODO: There is a small click here in half_block 7
     float pad_switch_beat = mod(beat.z - 24.0, 32.0); // Last 2 bar in half block
     float pad_switch_env =
         (half_block >= 5.0 && half_block <= 7.0) ? linearenvwithhold(pad_switch_beat + 0.6, 0.6, 8.0, 0.6) : 0.0;
@@ -706,7 +719,7 @@ vec2 mainSound(int samp_in, float time_in) {
     // End WAs, play fnuque
 
     // TODO: n tweaking is good!!!
-    if (enable_wah > 0.0) {
+    if (true && enable_wah > 0.0) {
         float wah_beat = mod(beat.z - 4.0, 8.0);
         float wah_beat_num = floor((beat.z - 4.0) / 8.0);
         #define WAH(offset, note, pan, gain) if (wah_beat >= offset) { wahNote = note; wahNoteBeat = wah_beat - offset; wahPan = pan; wahGain = gain;  }
@@ -739,9 +752,11 @@ vec2 mainSound(int samp_in, float time_in) {
             //     O += enable_wah * 0.8 * pad3voice(mod(beat.z - 4.0 - n * 1.0, 8.0), floor((beat.z - 4.0) / 8.0), note) * exp(-n * 0.3) * pan(pan_, -4.5);
             // }
 
+            // TODO: Change to int, tiny clicks
             float offset = 1.0;
             float offset_global_beat = beat.w + offset;
             float offset_half_block = offset_global_beat / 32.0;
+            // float offset_half_block = float((MusicSample + SAMPLES_PER_BEAT) / (SAMPLES_PER_BEAT * 32));
 
             bool modulated_pad = (offset_half_block >= 5.0 && offset_half_block < 8.0) && (mod(offset_half_block, 1.0) > 0.75);
 
