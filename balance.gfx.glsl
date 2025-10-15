@@ -509,7 +509,8 @@ void main() {
         }
     }
 
-    vec2 uv2 = (gl_FragCoord.xy * 2 - resolution) / resolution.xy;
+    // vec2 uv2 = (gl_FragCoord.xy * 2 - resolution) / resolution.xy;
+    vec2 uv2 = uv * resolution.yy / resolution.xy;
     outColor.xyz += 0.03 * hash3f_normalized(vec3(uv2, music_time.w));
     outColor.xyz = sqrt(outColor.xyz);
     outColor.xyz *= clamp(1.5 - 1.1 * length(uv2), 0.05, 1.0);
