@@ -443,16 +443,12 @@ void main() {
         }
 
         // BODY BLOCK 2
-        if (step.w >= 128.0 && step.w < 160.0) {
-            float effect_time = (music_time.w - 128.0 * B2T) * 0.9 + 28.0;
-
-            vec3 p = vec3(0.);
-            p.z -= effect_time * 0.4;
-
-            outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
-        }
-        if (step.w >= 160.0 && step.w < 192.0) {
-            float effect_time = (music_time.w - 128.0 * B2T) * 0.73 + 50.0;
+        if (step.w >= 128.0 && step.w < 192.0) {
+            float effect_time = (music_time.w - 128.0 * B2T);
+            if (step.w < 160.)
+                effect_time = effect_time * 0.9 + 28.0;
+            else
+                effect_time = effect_time * 0.73 + 50.0;
 
             vec3 p = vec3(0.);
             p.z -= effect_time * 0.4;
