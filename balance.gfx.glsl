@@ -389,6 +389,20 @@ vec4 scene2(vec3 dir, float time, float rounding_multiplier) {
     // }
 }
 
+float linearenv_curve(float edge0, float edge1, float x) {
+    return clamp((x - edge0) / (edge1 - edge0), 0., 1.);
+}
+
+float fade_in(float cur, float at, float length) {
+    if (cur < (at - length)) return 1.0;
+    return linearenv_curve(at - length, at, cur);
+}
+
+float fade_down(float cur, float at, float length) {
+    if (cur >= at) return 1.0;
+    return linearenv_curve(at, at - length, cur);
+}
+
 void main() {
     vec2 uv = (gl_FragCoord.xy * 2 - resolution) / resolution.yy;
 
@@ -629,6 +643,8 @@ void main() {
     outColor.xyz += 0.03 * hash3f_normalized(vec3(uv2, music_time.w));
     outColor.xyz = sqrt(outColor.xyz);
     outColor.xyz *= clamp(1.5 - 1.1 * length(uv2), 0.05, 1.0);
+
+    outColor.xyz *= fade_in(step.w, 8.0, 8.0) * fade_down(step.w, 160.0, 4.0);
 }
 
 // /*
