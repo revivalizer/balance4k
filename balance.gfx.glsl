@@ -38,15 +38,6 @@ vec2 sincos(float t) {
     return vec2(cos(t), sin(t));
 }
 
-mat2 rotate2D(float x) {
-    vec2 v = sincos(x);
-    return mat2(v.x, v.y, -v.y, v.x);
-}
-
-mat3 rotateX(float x) {
-    return mat3(rotate2D(x));
-}
-
 // NOTE: Shader Minifier ignores mat3(1.0), which should initialize a diagonal matrix
 //       So we manually set the last entry and hope the uninitialized matrix is all zeroes
 mat3 R(float x, int o) {
@@ -61,6 +52,28 @@ mat3 R(float x, int o) {
     return m;
 }
 /* R(t,0)=rotX, R(t,1)=rotY, R(t,2)=rotZ */
+
+// CREDIT: Hash functions from brainfiller/Ob5vr (https://github.com/0b5vr/brainfiller/blob/main/brainfiller.snd.glsl)
+uvec3 hash3u(uvec3 v) {
+    v = v * 1664525u + 1013904223u;
+
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+
+    v ^= v >> 16u;
+
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+
+    return v;
+}
+
+vec3 hash3f_normalized(vec3 v) {
+    uvec3 u = hash3u(floatBitsToUint(v));
+    return (vec3(u) / float(-1u)) * 2.0 - 1.0;
+}
 
 // Font parameters, tweaking these is fun :)
 // ----
@@ -176,28 +189,6 @@ float E(vec2 p) {
     return d;
 }
 
-// CREDIT: Hash functions from brainfiller/Ob5vr (https://github.com/0b5vr/brainfiller/blob/main/brainfiller.snd.glsl)
-uvec3 hash3u(uvec3 v) {
-    v = v * 1664525u + 1013904223u;
-
-    v.x += v.y * v.z;
-    v.y += v.z * v.x;
-    v.z += v.x * v.y;
-
-    v ^= v >> 16u;
-
-    v.x += v.y * v.z;
-    v.y += v.z * v.x;
-    v.z += v.x * v.y;
-
-    return v;
-}
-
-vec3 hash3f_normalized(vec3 v) {
-    uvec3 u = hash3u(floatBitsToUint(v));
-    return (vec3(u) / float(-1u)) * 2.0 - 1.0;
-}
-
 float FNUQUE(vec2 p) {
     float d = F(p);
 
@@ -224,15 +215,6 @@ float FNUQUE(vec2 p) {
 }
 
 vec3 main_fnuque(vec2 uv, float time, float noise_mag, float noise_res, float noise_prob) {
-    // vec3 p = vec3(0.);
-    // p.z-=time;
-
-    // vec3 d = normalize(vec3(uv, -1));
-
-    //outColor = vec4(uv, 0, 1);
-    // outColor = scene0(p, R(time*0.1, 0)*R(0.3, 1)*d, time);
-
-    // uv.x += time*0.1;
     uv.y += 0.35;
 
     if (true) {
@@ -243,9 +225,6 @@ vec3 main_fnuque(vec2 uv, float time, float noise_mag, float noise_res, float no
         if (noise.z > (1.0 - noise_prob)) {
             uv += (noise.xy) * noise_mag;
         }
-
-        // outColor = vec4(hash3f_normalized(vec3(uvd, time*0.1)), 1);
-        // return;
     }
 
     float d, q;
@@ -487,45 +466,22 @@ void main() {
     if (true) {
         // INTRO
         if (step.w >= 0.0 && step.w < 63.0) {
-            // float s2_FOV = 1.2 + 0.1 * hash3f_normalized(vec3(floor(music_time.w * 6.0))).x;
-            float s2_FOV = 1.0; // + 0.05 * sin(music_time.w * 30.0) + 0.05 * sin(music_time.w * 27.0);
+            float s2_FOV = 1.0;
             vec3 s2_d = normalize(vec3(uv, -s2_FOV));
             float s2_look_rot = 1.4 - music_time.w * 0.05;
             float dissolve_time = max(0.0, step.w - 55.0);
             outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, music_time.w, s2_rounding_multiplier * 0.6 * pow(2.0, 0.10 * (pow(dissolve_time, 1.5))));
         }
 
-        // Circle closing
-        // if (step.w >= 56.0 && step.w < 64.0) {
-        //     float effect_time = (music_time.w - 56.0 * B2T) * 2.0 - 4.5;
-        //     float sphereness = -0.1 + sin(effect_time * 0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
-
-        //     vec3 p = vec3(0.);
-        //     p.z -= effect_time * 0.5 * 0.4;
-
-        //     float fade_in = pow(smoothstep(0.0, 8.0, step.w - 56.0), 4.0);
-
-        //     outColor = fade_in * scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
-        // }
-
         // BODY BLOCK 1
-        // TWO VARIANTS
-        if (true) {
-            if (step.w >= 64.0 && step.w < 128.0) {
-                float effect_time = (music_time.w - 64.0 * B2T) * 1.5 + 33.0;
-                float warp_time = effect_time * 1.2;
-                float s1_sphereness = 0.2 + 1.4 * sin(warp_time * 0.1);
-                float s1_planeness = 0.5 + sin(warp_time * 0.19);
-                outColor = scene1(R(s1_x_rot, 0) * R(s1_look_rot, 1) * s1_d, effect_time * 0.4, s1_sphereness, s1_planeness, s1_wildness, s1_rounding_multiplier, 1.0, 1.0, 4e2);
-            }
-        } else {
-            if (step.w >= 64.0 && step.w < 128.0) {
-                float effect_time = (music_time.w - 64.0 * B2T) * 1.0 + 31.0;
-                float s1_sphereness = 0.2 + 1.4 * sin(effect_time * 0.1);
-                float s1_planeness = 0.5 + sin(effect_time * 0.19);
-                outColor = scene1(R(s1_x_rot, 0) * R(s1_look_rot, 1) * s1_d, effect_time, s1_sphereness, s1_planeness, s1_wildness, s1_rounding_multiplier, 1.0, 1.0, 4e2);
-            }
+        if (step.w >= 64.0 && step.w < 128.0) {
+            float effect_time = (music_time.w - 64.0 * B2T) * 1.5 + 33.0;
+            float warp_time = effect_time * 1.2;
+            float s1_sphereness = 0.2 + 1.4 * sin(warp_time * 0.1);
+            float s1_planeness = 0.5 + sin(warp_time * 0.19);
+            outColor = scene1(R(s1_x_rot, 0) * R(s1_look_rot, 1) * s1_d, effect_time * 0.4, s1_sphereness, s1_planeness, s1_wildness, s1_rounding_multiplier, 1.0, 1.0, 4e2);
         }
+
         // BODY BLOCK 2
         if (step.w >= 128.0 && step.w < 160.0) {
             float effect_time = (music_time.w - 128.0 * B2T) * 0.9 + 28.0;
@@ -545,16 +501,8 @@ void main() {
 
             outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
         }
+
         // BREAK
-        // if (step.w >= 192.0 && step.w < 256.0) {
-        //     float effect_time = (music_time.w - 192.0 * B2T) * 1.0 + 2.0;
-        //     e0_sphereness = -0.1 + 0.2 * sin(-0.2 + effect_time * 0.120); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
-
-        //     // vec3 p = vec3(0.);
-        //     // p.z -= effect_time * 0.5 * 0.4;
-
-        //     outColor = scene0(-e0_p + 5.0 * 0.15 * (effect_time - 5.0), R(e0_x_rot + 1.8, 0) * R(e0_look_rot + 0.4 * effect_time / 20.0, 1) * e0_d, music_time.w * 0.1, e0_sphereness, e0_noisyness, e0_exposure * 2.5, e0_wildness, e0_rounding_multiplier);
-        // }
         if (step.w >= 192.0 && step.w < 256.0) {
             float effect_time = (music_time.w - 192.0 * B2T) * 0.71 + 15.0;
 
@@ -580,14 +528,6 @@ void main() {
             }
         }
 
-        // if (step.w >= 224.0 && step.w < 256.0) {
-        //     float effect_time = (music_time.w - 224.0 * B2T) * 0.5 + 29.7 + 5.65;
-
-        //     float s2_rounding_multiplier = 1.0 / 16.0; // 1/8, 1, 8 works
-
-        //     // Run from around 28-30 seconds
-        //     outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, effect_time, s2_rounding_multiplier);
-        // }
         // BODY BLOCK 3
         if (step.w >= 256.0 && step.w < 320.0) {
             float effect_time = (music_time.w - 256.0 * B2T) * 1.0 + 31.0;
@@ -595,6 +535,7 @@ void main() {
             float s1_planeness = 0.5 + sin(effect_time * 0.19);
             outColor = scene1(R(s1_x_rot, 0) * R(s1_look_rot, 1) * s1_d, effect_time, s1_sphereness, s1_planeness, s1_wildness, s1_rounding_multiplier, 1.0, 1.0, 4e2);
         }
+
         // OUTTRO
         if (step.w >= 328.0) {
             float effect_time = (music_time.w - (256.0 + 64.0 + 8.0) * B2T) * 0.75;
@@ -605,38 +546,9 @@ void main() {
 
             vec3 col = vec3(0.0);
             col += main_fnuque(uv / (1.0 + effect_time * 0.01) + vec2(cam_shake(time).x, 0.0) * 0.05, effect_time, 0.0 * noise_mag, noise_res, noise_prob);
-            // col += 0.5 * main_fnuque(uv * exp(0.05 * hash3f_normalized(vec3(floor(time * 10.0))).r), effect_time, noise_mag, noise_res, noise_prob);
-
-            // const float N = 19.0;
-            // repeatcenteredfloat(i, N)
-            // {
-            //     col.r += main_fnuque(uv * exp(-0.015 + i * 0.003), effect_time, noise_mag, noise_res, noise_prob).r;
-            //     col.g += main_fnuque(uv * exp(0.000 + i * 0.003), effect_time, noise_mag, noise_res, noise_prob).g;
-            //     col.b += main_fnuque(uv * exp(+0.015 + i * 0.003), effect_time, noise_mag, noise_res, noise_prob).b;
-            // }
-            // col /= N;
 
             outColor = vec4(col, 1.0);
         }
-    }
-
-    if (false) {
-        vec3 col = vec3(0.0);
-
-        float noise_mag = 0.3;
-        float noise_res = 2.5;
-        float noise_prob = 0.85;
-
-        const float N = 19.0;
-        repeatcenteredfloat(i, N)
-        {
-            col.r += main_fnuque(uv * exp(-0.015 + i * 0.003), time * 0.0, noise_mag, noise_res, noise_prob).r;
-            col.g += main_fnuque(uv * exp(0.000 + i * 0.003), time * 0.0, noise_mag, noise_res, noise_prob).g;
-            col.b += main_fnuque(uv * exp(+0.015 + i * 0.003), time * 0.0, noise_mag, noise_res, noise_prob).b;
-        }
-        col /= N;
-
-        outColor = vec4(col, 1.0);
     }
 
     vec2 uv2 = (gl_FragCoord.xy * 2 - resolution) / resolution.xy;
