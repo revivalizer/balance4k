@@ -179,6 +179,7 @@ float linearenvexp(float t, float attack, float kappa) {
 //     return V;
 // }
 
+// TODO SIZE: dirtykick2 and kick could be combined
 vec2 dirtykick2(float t) {
     if (t < 0.)
         return vec2(0.);
@@ -354,17 +355,20 @@ vec2 shaker(float t) {
     return V * 0.3;
 }
 
-vec2 riser2(float t) {
-    if (t < 0.)
+vec2 sweep_riser_combined(float t, float beginpitch, float endpitch, float env_select) {
+    if (t < 0. || t > 6.0)
         return vec2(0.);
 
-    float minp = 85.0;
-    float maxp = 130.0;
+    float minp = min(beginpitch, endpitch);
+    float maxp = max(beginpitch, endpitch);
     // float length = t * T2B / 8.0;
-    float pfilter = minp + t / 2.7 * (maxp - minp);
 
-    float env = t / 2.7;
-    env = env * env * env;
+    float time_factor = 2.7 * 1.0;
+
+    float pfilter = beginpitch + t / time_factor * (endpitch - beginpitch);
+
+    float env = t / time_factor;
+    env = mix(env * env * env, exp(-t * time_factor * 0.5), env_select);
 
     vec2 V = vec2(0.0);
     const int N = 221;
@@ -386,43 +390,12 @@ vec2 riser2(float t) {
     return V * 0.4;
 }
 
-// TODO: Merge with riser2
+vec2 riser2(float t) {
+    return sweep_riser_combined(t, 85.0, 130.0, 0.0);
+}
+
 vec2 sweep(float t) {
-    if (t < 0. || t > 8.0)
-        return vec2(0.);
-
-    float startp = 130.0;
-    float stopp = 85.0;
-
-    float minp = min(startp, stopp);
-    float maxp = max(startp, stopp);
-    // float length = t * T2B / 8.0;
-
-    float time_factor = 2.7 * 1.0;
-
-    float pfilter = startp + t / time_factor * (stopp - startp);
-
-    float env = t / time_factor;
-    env = exp(-t * time_factor * 0.5);
-
-    vec2 V = vec2(0.0);
-    const int N = 221;
-    repeat(n, N)
-    {
-        vec3 r = hash3f(vec3(n * 1.1 + 11.9128783));
-        float p = minp + (maxp - minp) * r.x;
-        float a = exp(-0.005 * pow(pfilter - p, 2.0));
-        float magnitude = 1.0 / (2.0 * p2f(p) / p2f(minp));
-        a *= magnitude;
-        // if (p < pfilter)
-        //     a = 1;
-
-        float Q = a * sin(TAU * p2f(p) * t + r.z * TAU);
-        V += Q * pan(r.y, -4.5);
-    }
-
-    V = env * stereowidth(V, 0.25);
-    return V * 0.4;
+    return sweep_riser_combined(t, 130.0, 85.0, 1.0);
 }
 
 vec2 pad(float barpos, float note) {
