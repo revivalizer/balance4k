@@ -253,7 +253,7 @@ vec2 cam_shake(float time) {
 //       Multiplier on sin in offset can control randomness, going quite extreme
 //       Coloring can be given an offset to desaturate a bit
 //       Letting rotation depend on time can give more life
-vec4 scene0(vec3 p_in, vec3 dir, float time, float sphereness, float noisyness, float exposure, float wildness, float rounding_multiplier) {
+vec4 scene0(vec3 p_in, vec3 dir, float time, float noisyness, float exposure, float wildness, float rounding_multiplier) {
     vec3 p = p_in;
     vec4 O = vec4(0.);
     float d = 0, z = 0, i = 0;
@@ -263,7 +263,7 @@ vec4 scene0(vec3 p_in, vec3 dir, float time, float sphereness, float noisyness, 
         vec3 p_ = R(0.01, 1) * (p * 0.9);
         // vec3 p_ = p;
         // 0.003 is just the best constant
-        float cyl_sphere_dist = mix(length(p.xy), length(p.xyz), sphereness);
+        float cyl_sphere_dist = mix(length(p.xy), length(p.xyz), -0.1 + sin(time * 0.1));
         d = .003 + abs(cyl_sphere_dist - 4. + noisyness * dot(sin(p_), cos(p_).yzx));
         z += d;
         O += (1.0 + sin(i * 0.3 + z + time + vec4(6 * sin(time + z * 0.2 + 0.5), 1, 2 * sin(time * 0.1 + z * 0.9 + 0.3), 0))) / d;
@@ -402,7 +402,6 @@ void main() {
     float e0_FOV = 3.0; // 1.0 Is nice initially, but for sphereness animation, higher is better probably
     float e0_x_rot = music_time.w * 0.1;
     float e0_look_rot = PI + 0.08; // Looking backwards in z is nice
-    float e0_sphereness = -0.1 + sin(music_time.w * 0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
     float e0_noisyness = 1.0; // Values up to 10 look interesting, more animating
     float e0_exposure = 1e2;
     float e0_wildness = 0.5;
@@ -446,21 +445,19 @@ void main() {
         // BODY BLOCK 2
         if (step.w >= 128.0 && step.w < 160.0) {
             float effect_time = (music_time.w - 128.0 * B2T) * 0.9 + 28.0;
-            float sphereness = -0.1 + sin(effect_time * 0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
 
             vec3 p = vec3(0.);
             p.z -= effect_time * 0.4;
 
-            outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
+            outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
         }
         if (step.w >= 160.0 && step.w < 192.0) {
             float effect_time = (music_time.w - 128.0 * B2T) * 0.73 + 50.0;
-            float sphereness = -0.1 + sin(effect_time * 0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
 
             vec3 p = vec3(0.);
             p.z -= effect_time * 0.4;
 
-            outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
+            outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
         }
 
         // BREAK
@@ -519,51 +516,3 @@ void main() {
 
     outColor.xyz *= fade_in(step.w, 8.0, 8.0) * fade_down(step.w, 160.0, 4.0);
 }
-
-// /*
-//     @yufengjie brought up the idea of distorting a couple spheres
-//     instead of a tunnel, so i tinkered with this a bit
-
-//     the only changes are there are two vecs, q and p,
-//     both are distorted differently in the turbulence loop,
-//     then the min of the two spheres is taken
-
-//     and the colors are different :D
-// */
-
-// void mainImage(out vec4 o, vec2 u) {
-
-//     vec3 q,p = iResolution;
-
-//     float i, s,
-//           // start the ray at a small random distance,
-//           // this will reduce banding
-//           d = .125*texelFetch(iChannel0, ivec2(u)%1024, 0).a,
-//           t = iTime;
-
-//     // scale coords
-//     u =(u+u-p.xy)/p.y;
-
-//     for(o*=i; i++<1e2; ) {
-
-//         // shorthand for standard raymarch sample, then move forward:
-//         // p = ro + rd * d, p.z -= 5.;
-//         q = p = vec3(u * d, d - 5.);
-
-//         // turbulence
-//         for (s = 1.; s++ <8.;
-//             q += sin(.6*t+p.zxy*s*.3)*.4,
-//             p += sin(t+round(p.yzx*1.6)/1.6*s)*.25);
-
-//         // distance to spheres
-//         d += s = .005 + abs(-(length(p.xy*2.03+1.)-2. - length(q-1.)-3.))*.2;
-
-//         // color: 1.+cos so we don't go negative, cos(d+vec4(6,4,2,0)) samples from the palette
-//         // divide by s for form and distance
-//         o += (1.+cos(p.z+vec4(6,4,2,0))) / s;
-
-//     }
-
-//     // tonemap and divide brightness
-//     o = tanh(o / 8e3 / max(length(u), .5));
-// }
