@@ -524,7 +524,7 @@ void main() {
             outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, sphereness, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
         }
         if (step.w >= 160.0 && step.w < 192.0) {
-            float effect_time = (music_time.w - 128.0 * B2T) * 0.8 + 50.0;
+            float effect_time = (music_time.w - 128.0 * B2T) * 0.73 + 50.0;
             float sphereness = -0.1 + sin(effect_time * 0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
 
             vec3 p = vec3(0.);
@@ -543,7 +543,7 @@ void main() {
         //     outColor = scene0(-e0_p + 5.0 * 0.15 * (effect_time - 5.0), R(e0_x_rot + 1.8, 0) * R(e0_look_rot + 0.4 * effect_time / 20.0, 1) * e0_d, music_time.w * 0.1, e0_sphereness, e0_noisyness, e0_exposure * 2.5, e0_wildness, e0_rounding_multiplier);
         // }
         if (step.w >= 192.0 && step.w < 256.0) {
-            float effect_time = (music_time.w - 192.0 * B2T) * 0.7 + 15.0;
+            float effect_time = (music_time.w - 192.0 * B2T) * 0.71 + 15.0;
 
             float s1_sphereness = 0.2 + 1.4 * sin(effect_time * 0.1);
             float s1_planeness = 0.5 + sin(effect_time * 0.19);
@@ -579,7 +579,7 @@ void main() {
             float noise_prob = 0.25;
 
             vec3 col = vec3(0.0);
-            col += main_fnuque(uv + cam_shake(time) * 0.03, effect_time, 0.0 * noise_mag, noise_res, noise_prob);
+            col += main_fnuque(uv + vec2(cam_shake(time).x, 0.0) * 0.05, effect_time, 0.0 * noise_mag, noise_res, noise_prob);
             // col += 0.5 * main_fnuque(uv * exp(0.05 * hash3f_normalized(vec3(floor(time * 10.0))).r), effect_time, noise_mag, noise_res, noise_prob);
 
             // const float N = 19.0;
