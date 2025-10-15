@@ -704,10 +704,6 @@ vec2 mainSound(int samp_in, float time_in) {
         O += 0.7 * pad3voice(wahNoteBeat, wah_beat_num, wahNote) * wahGain * pan(wahPan, -4.5);
     }
 
-    // if (beat.w >= 320.0) {
-    //     O += 0.1 * sin(time.w * TAU * p2f(18.0));
-    // }
-
     return 1.0 * clamp(O, -1.0, 1.0);
 }
 

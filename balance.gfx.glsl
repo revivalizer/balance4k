@@ -233,13 +233,12 @@ vec3 main_fnuque(vec2 uv, float time, float noise_mag, float noise_res, float no
     // outColor = scene0(p, R(time*0.1, 0)*R(0.3, 1)*d, time);
 
     // uv.x += time*0.1;
-    uv /= 1.0 + time * 0.01;
     uv.y += 0.35;
 
     if (true) {
-        vec2 uvd = floor(uv * (2.0 + noise_res * sin(floor(time * 5.0) * 23.762)));
+        vec2 uvd = floor(uv * (1.0 + noise_res * abs(sin(floor(time * 5.0) * 23.762))));
         vec3 offset = vec3(uvd, 0.1);
-        vec3 noise = hash3f_normalized(offset + floor(time * 16.0) + 10.897);
+        vec3 noise = hash3f_normalized(offset + floor(time * 16.0) + vec3(10.897, 77.98, 0.112));
 
         if (noise.z > (1.0 - noise_prob)) {
             uv += (noise.xy) * noise_mag;
@@ -553,6 +552,18 @@ void main() {
 
             // Run from around 7 seconds
             outColor = scene1(R(s1_x_rot, 0) * R(s1_look_rot + cam_shake(effect_time * 0.005).x * 10.0, 1) * s1_d, effect_time, s1_sphereness, s1_planeness, s1_wildness, s1_rounding_multiplier, 1.0, 1.0, 4e3);
+
+            float q = (step.w - 192.0);
+            float bar = floor(q / 4.0);
+            float in_bar = mod(q, 4.0);
+
+            if (in_bar >= 2.5 && step.w < 248.0) {
+                float noise_mag = 0.2;
+                float noise_res = 1.0;
+                float noise_prob = 1.85;
+
+                outColor.xyz += 1.2 * main_fnuque(uv + vec2(cam_shake(time).x, 0.0) * 10.0 * exp(-in_bar * 1.5), bar, noise_mag, noise_res, noise_prob);
+            }
         }
 
         // if (step.w >= 224.0 && step.w < 256.0) {
@@ -579,7 +590,7 @@ void main() {
             float noise_prob = 0.25;
 
             vec3 col = vec3(0.0);
-            col += main_fnuque(uv + vec2(cam_shake(time).x, 0.0) * 0.05, effect_time, 0.0 * noise_mag, noise_res, noise_prob);
+            col += main_fnuque(uv / (1.0 + effect_time * 0.01) + vec2(cam_shake(time).x, 0.0) * 0.05, effect_time, 0.0 * noise_mag, noise_res, noise_prob);
             // col += 0.5 * main_fnuque(uv * exp(0.05 * hash3f_normalized(vec3(floor(time * 10.0))).r), effect_time, noise_mag, noise_res, noise_prob);
 
             // const float N = 19.0;
