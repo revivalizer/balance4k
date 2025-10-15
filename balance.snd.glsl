@@ -179,7 +179,6 @@ float linearenvexp(float t, float attack, float kappa) {
 //     return V;
 // }
 
-// TODO SIZE: dirtykick2 and kick could be combined
 vec2 dirtykick2(float t) {
     if (t < 0.)
         return vec2(0.);
@@ -592,8 +591,8 @@ vec2 mainSound(int samp_in, float time_in) {
     float enable_wah = (beat.w >= beat_comp(1.0, 14.5, 0.0) && beat.w < beat_comp(5.0, 2.25, 0.0)) ? 1.0 : 0.0;
     float enable_kick = (block >= 1.0 && block <= 4.0) ? 1.0 : 0.0;
     float enable_snare = ((block >= 1.0 && block != 3.0 && block <= 4.0) ? 1.0 : 0.0);
-    // float enable_hihat = (block < 5.0 && block != 3.0) ? 1.0 : 0.0;
-    float enable_hihat = (block < 5.0) ? 1.0 : 0.0;
+    // float enable_hihat = (block < 5.0) ? 1.0 : 0.0;
+    float enable_hihat = (block < 5.0 && block != 3.0) ? 1.0 : 0.0;
     float enable_sweep = block >= 1.0 && block < 5.0 ? 1.0 : 0.0;
 
     float enable_block_last_bar = (block == 1.0 && bar_in_block_unfloor >= 14.) ? 0.0 : 1.0;
