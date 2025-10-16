@@ -284,52 +284,6 @@ vec2 hihat2(float t, float step_, float time) {
     return V * 0.3;
 }
 
-// vec2 saw(float t, float f0, float fc) {
-//     float V = 0.0;
-//     repeat(i, 127)
-//     {
-//         float f = f0 * float(i + 1);
-//         if (f < 16000.0) {
-//             float a = 1.0 / float(i + 1);
-//             if (f > fc) {
-//                 float reloct = f / fc;
-//                 a *= 1.0 / (1.0 + pow(reloct, 2.0));
-//             }
-//             V += a * sin(TAU * f * t);
-//         }
-//     }
-//     return vec2(V);
-// }
-
-// vec2 reese(float t, float f0, float fc) {
-//     vec2 O = vec2(0.0);
-//     repeat(i, 9)
-//     {
-//         float j = i - 4.0;
-//         float f = f0 * exp(j * 0.005);
-//         vec2 V = saw(t, f, fc) * (1.0 / (abs(j) * 0.5 + 1.0));
-//         O += vec2(V) * pan(0.5 + float(j) * 0.1, -4.5);
-//     }
-//     return O;
-// }
-
-// float tri(float x) {
-//     float x2 = mod(x, 1.0) * 2.0;
-//     if (x2 > 1.0)
-//         return 1.0 - x2;
-//     return x2;
-// }
-
-// // Inspiration: https://www.youtube.com/shorts/pYKKurirXV0
-// vec2 noisebass(float t, float f0) {
-//     float b = t * T2B;
-//     vec2 V = sin(t * TAU * f0) + 0.08 * hash3f_normalized(vec3(t + 0.123)).xy;
-//     V *= abs(tri(b));
-//     V = stereowidth(V, 0.5);
-
-//     return vec2(tanh(V * 2.0));
-// }
-
 // Inspiration: https://www.youtube.com/watch?v=BxehYL9Abg4
 vec2 shaker(float t) {
     if (t < 0.)
