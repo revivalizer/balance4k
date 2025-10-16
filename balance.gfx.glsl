@@ -244,42 +244,6 @@ vec2 cam_shake(float time) {
     return offset * 0.5;
 }
 
-// CREDIT: Inspiration from https://www.shadertoy.com/view/3cScWy by Xor
-// NOTE: Very sensitive to FOV, should be 1 to match above
-//       Varying tunnel radius also interesting
-//       Can be changed to sphere by including z in cylinder length
-//       Coloring, multiplier on i is interesting
-//       Instead of dividing with d on coloring line, can multiply
-//       Multiplier on sin in offset can control randomness, going quite extreme
-//       Coloring can be given an offset to desaturate a bit
-//       Letting rotation depend on time can give more life
-vec4 scene0(vec3 p_in, vec3 dir, float time, float noisyness, float exposure, float wildness, float rounding_multiplier) {
-    vec3 p = p_in;
-    vec4 O = vec4(0.);
-    float d = 0, z = 0, i = 0;
-    for (; i < 3e1; i++) {
-        // Cylinder + Gyroid
-        //		d=abs(length(p.xy)-5. + dot(sin(p.xyz), cos(p.yzx)));
-        vec3 p_ = R(0.01, 1) * (p * 0.9);
-        // vec3 p_ = p;
-        // 0.003 is just the best constant
-        float cyl_sphere_dist = mix(length(p.xy), length(p.xyz), -0.1 + sin(time * 0.1));
-        d = .003 + abs(cyl_sphere_dist - 4. + noisyness * dot(sin(p_), cos(p_).yzx));
-        z += d;
-        O += (1.0 + sin(i * 0.3 + z + time + vec4(6 * sin(time + z * 0.2 + 0.5), 1, 2 * sin(time * 0.1 + z * 0.9 + 0.3), 0))) / d;
-        // O+=(1.+sin(i*0.3+z+time+vec4(6,1,2,0)))/d;
-        p += dir * d;
-        //p=z*dir;
-
-        for (float f = 1.; f++ < 2.;
-            //Blocky, stretched waves
-            p += wildness * sin(round(p.yxz * rounding_multiplier) / 3. * f) / f);
-    }
-    // float c=length(p)*0.01;
-    // return vec4(vec3(c), 1.);
-    return tanh(O / exposure);
-}
-
 // CREDIT: Inspiration from https://www.shadertoy.com/view/WcKXDV by Xor
 vec4 scene1(vec3 dir, float time, float sphereness, float planeness, float wildness, float rounding_multiplier, float camshake_timescale, float camshake_magnitude, float exposure)
 {
