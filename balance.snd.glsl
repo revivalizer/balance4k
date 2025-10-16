@@ -212,6 +212,7 @@ vec2 snare2(float t, float time) {
         return vec2(0.0);
 
     // May not be necessary to filter this, it is very short
+    // // Combine hp in snare2, hihat and shaker
     vec2 hit = vec2(0.0);
     const int N = 65;
     repeat(n, N)

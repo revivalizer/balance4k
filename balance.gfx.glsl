@@ -233,7 +233,7 @@ vec3 main_fnuque(vec2 uv, float time, float noise_mag, float noise_res, float no
     p.x *= 1.0 + p.y / 55.0;
     p.x += 29.5;
     d = FNUQUE(p);
-    q = smoothstep(0.0, -0.05, d);
+    q = smoothstep(0.0, -0.1, d);
     return vec3(q);
 }
 
