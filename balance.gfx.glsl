@@ -322,7 +322,7 @@ vec4 scene1(vec3 dir, float time, float sphereness, float planeness, float wildn
 }
 
 // CREDIT: Inspiration from https://www.shadertoy.com/view/3fBcR3
-vec4 scene2(vec3 dir, float time, float rounding_multiplier) {
+vec4 scene2(vec3 dir, float time, float rounding_multiplier, float cam_shake_magnitude) {
     // void mainImage(out vec4 o, vec2 u) {
 
     vec4 o = vec4(0.);
@@ -344,7 +344,7 @@ vec4 scene2(vec3 dir, float time, float rounding_multiplier) {
         // shorthand for standard raymarch sample, then move forward:
         // p = ro + rd * d, p.z -= 5.;
         // q = p = vec3(u * d, d - 5.);
-        q = p = dir * d + vec3(0., 0., 20.0 - time * 0.4);
+        q = p = dir * d + vec3(0., 0., 20.0 - time * 0.4) + vec3(cam_shake(time) * cam_shake_magnitude, 0.0);
 
         // turbulence
         for (s = 1.; s++ < 8.;
@@ -370,16 +370,6 @@ vec4 scene2(vec3 dir, float time, float rounding_multiplier) {
 
 float linearenv_curve(float edge0, float edge1, float x) {
     return clamp((x - edge0) / (edge1 - edge0), 0., 1.);
-}
-
-float fade_in(float cur, float at, float length) {
-    if (cur < (at - length)) return 1.0;
-    return linearenv_curve(at - length, at, cur);
-}
-
-float fade_down(float cur, float at, float length) {
-    if (cur >= at) return 1.0;
-    return linearenv_curve(at, at - length, cur);
 }
 
 void main() {
@@ -430,7 +420,7 @@ void main() {
             vec3 s2_d = normalize(vec3(uv, -s2_FOV));
             float s2_look_rot = 1.4 - music_time.w * 0.05;
             float dissolve_time = max(0.0, step.w - 55.0);
-            outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, music_time.w, s2_rounding_multiplier * 0.6 * pow(2.0, 0.10 * (pow(dissolve_time, 1.5))));
+            outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, music_time.w, s2_rounding_multiplier * 0.6 * pow(2.0, 0.10 * (pow(dissolve_time, 1.5))), 0.0);
         }
 
         // BODY BLOCK 1
@@ -444,16 +434,15 @@ void main() {
 
         // BODY BLOCK 2
         if (step.w >= 128.0 && step.w < 192.0) {
-            float effect_time = (music_time.w - 128.0 * B2T);
-            if (step.w < 160.)
-                effect_time = effect_time * 0.9 + 28.0;
-            else
-                effect_time = effect_time * 0.73 + 50.0;
+            float effect_time = (music_time.w - 128.0 * B2T) * 1.4 + 33.0;
 
-            vec3 p = vec3(0.);
-            p.z -= effect_time * 0.4;
+            float s2_FOV = 1.2;
+            float s2_x_rot = effect_time * 0.12;
+            float s2_look_rot = 0.6 - effect_time * 0.1 + PI * 0.5;
+            float s2_rounding_multiplier = 20.0 / 1.0; // 1/8, 1, 8 works
+            vec3 s2_d = normalize(vec3(uv, -s2_FOV));
 
-            outColor = scene0(p, R(e0_x_rot, 0) * R(e0_look_rot, 1) * e0_d, effect_time, e0_noisyness, e0_exposure, e0_wildness, e0_rounding_multiplier);
+            outColor = scene2(R(s2_x_rot, 0) * R(s2_look_rot, 1) * s2_d, effect_time, s2_rounding_multiplier, 0.5);
         }
 
         // BREAK
@@ -469,16 +458,16 @@ void main() {
             // Run from around 7 seconds
             outColor = scene1(R(s1_x_rot, 0) * R(s1_look_rot + cam_shake(effect_time * 0.005).x * 10.0, 1) * s1_d, effect_time, s1_sphereness, s1_planeness, s1_wildness, s1_rounding_multiplier, 1.0, 1.0, 4e3);
 
-            float q = (step.w - 192.0);
+            float q = (step.w - 192.0 - 2.5);
             float bar = floor(q / 4.0);
             float in_bar = mod(q, 4.0);
 
-            if (in_bar >= 2.5 && step.w < 248.0) {
-                float noise_mag = 0.2;
-                float noise_res = 1.0;
-                float noise_prob = 1.85;
+            if (bar >= 0 && in_bar >= 0.0 && step.w < 248.0) {
+                float noise_mag = 0.3;
+                float noise_res = 0.5;
+                float noise_prob = 1.35;
 
-                outColor.xyz += 1.2 * main_fnuque(uv + vec2(cam_shake(time).x, 0.0) * 10.0 * exp(-in_bar * 1.5), bar, noise_mag, noise_res, noise_prob);
+                outColor.xyz += vec3(1., 1., 2.) * 1.8 * main_fnuque(uv * 1.3 + vec2(cam_shake(time).x, 0.0) * 0.8 * exp(-in_bar * 5.5) + vec2(-1.0, 1.0), (bar) * 2.91 + 21.59, noise_mag, noise_res + 1.0, noise_prob);
             }
         }
 
@@ -491,7 +480,7 @@ void main() {
         }
 
         // OUTTRO
-        if (step.w >= 328.0) {
+        if (step.w >= 320.0 && step.w < 328.0) {
             float effect_time = (music_time.w - 328.0 * B2T) * 0.75;
 
             float noise_mag = 0.1;
@@ -511,5 +500,6 @@ void main() {
     outColor.xyz = sqrt(outColor.xyz);
     outColor.xyz *= clamp(1.5 - 1.1 * length(uv2), 0.05, 1.0);
 
-    outColor.xyz *= fade_in(step.w, 8.0, 8.0) * fade_down(step.w, 160.0, 4.0);
+    // outColor.xyz *= fade_in(step.w, 8.0, 8.0) * fade_down(step.w, 160.0, 4.0);
+    outColor.xyz *= linearenv_curve(0.0, 8.0, step.w);
 }

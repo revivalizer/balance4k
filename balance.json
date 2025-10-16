@@ -43,7 +43,7 @@
 		"numSoundBufferSamples":	5767168,
 		"numSoundBufferAvailableSamples":	5767168,
 		"numSoundBufferSamplesPerDispatch":	32768,
-		"enableFrameCountUniform":	true,
+		"enableFrameCountUniform":	false,
 		"enableSoundDispatchWait":	true,
 		"shaderMinifierOptions":	{
 			"enableFieldNames":	false,
@@ -55,7 +55,7 @@
 			"smoothstep":	false
 		},
 		"crinklerOptions":	{
-			"compMode":	2,
+			"compMode":	3,
 			"useTinyHeader":	false,
 			"useTinyImport":	false
 		}
