@@ -426,12 +426,12 @@ void main() {
             float bar = floor(q / 4.0);
             float in_bar = mod(q, 4.0);
 
-            if (bar >= 0 && in_bar >= 0.0 && step.w < 248.0) {
+            if (bar >= 0 && step.w < 248.0) {
                 float noise_mag = 0.3;
-                float noise_res = 0.5;
+                float noise_res = 1.5;
                 float noise_prob = 1.35;
 
-                outColor.xyz += vec3(1., 1., 2.) * 1.8 * main_fnuque(uv * 1.3 + vec2(cam_shake(time).x, 0.0) * 0.8 * exp(-in_bar * 5.5) + vec2(-1.0, 1.0), (bar) * 2.91 + 21.59, noise_mag, noise_res + 1.0, noise_prob);
+                outColor.xyz += 1.8 * main_fnuque(uv * 1.3 + vec2(cam_shake(time).x, 0.0) * 0.8 * exp(-in_bar * 5.5) + vec2(-1.0, 1.0), (bar) * 2.91 + 21.59, noise_mag, noise_res, noise_prob);
             }
         }
 
