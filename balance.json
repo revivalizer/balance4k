@@ -28,7 +28,7 @@
 		"enableMipmapGeneration":	true,
 		"textureFilter":	1,
 		"textureWrap":	1,
-		"enableSwapIntervalControl":	true,
+		"enableSwapIntervalControl":	false,
 		"swapInterval":	2
 	},
 	"preferenceSettings":	{
