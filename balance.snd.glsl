@@ -568,19 +568,19 @@ vec2 mainSound(int samp_in, float time_in) {
     vec2 O = vec2(0.);
 
     if (true) {
-        float drum_gain = 0.85;
+        float drum_gain = 0.4;
         O += enable_kick * kick((beat.y) * B2T) * drum_gain;
         O += enable_kick * dirtykick2((beat.y - 2.5) * B2T) * drum_gain;
         O += enable_snare * snare2((beat.y - 1.) * B2T, time.w + 0.789) * drum_gain;
 
         if ((altbar == false || beat.w < 32.0) && beat.w > 32.0) {
-            O += enable_hihat * 1.0 * hihat2((beat.x + 0.25) * B2T, beat.x * 2., time.y + 0.123);
-            O += enable_hihat * 1.0 * hihat2((beat.x - 0.50) * B2T, beat.x * 2., time.w + 0.456); // Time wraps at the end...
+            O += enable_hihat * 0.7 * hihat2((beat.x + 0.25) * B2T, beat.x * 2., time.y + 0.123);
+            O += enable_hihat * 0.7 * hihat2((beat.x - 0.50) * B2T, beat.x * 2., time.w + 0.456); // Time wraps at the end...
         } else {
             if (block < 5.0) {
                 if (beat.z < 32.0) {
                     if (block >= 1.0) { // We don't want riser in intro
-                        O += shaker(time.x) * 1.2;
+                        O += 0.7*shaker(time.x) * 1.2;
                     }
                 } else {
                     O += riser2(mod(beat.z, 8.0) * B2T) * 0.7;
@@ -656,7 +656,7 @@ vec2 mainSound(int samp_in, float time_in) {
             WAH(2.0, 52, 0.5, exp(-2.0 * 0.3))
             WAH(2.5, 55, 0.5, exp(-0.0 * 0.3))
         }
-        O += 0.7 * pad3voice(wahNoteBeat, wah_beat_num, wahNote) * wahGain * pan(wahPan, -4.5);
+        O += 0.75 * pad3voice(wahNoteBeat, wah_beat_num, wahNote) * wahGain * pan(wahPan, -4.5);
     }
 
     return 1.0 * clamp(O, -1.0, 1.0);
