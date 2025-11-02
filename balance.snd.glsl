@@ -567,8 +567,8 @@ vec2 mainSound(int samp_in, float time_in) {
     // vec2 O = vec2(sin(time.z * TAU * 440.0) * 0.1);
     vec2 O = vec2(0.);
 
+    float drum_gain = 0.4;
     if (true) {
-        float drum_gain = 0.4;
         O += enable_kick * kick((beat.y) * B2T) * drum_gain;
         O += enable_kick * dirtykick2((beat.y - 2.5) * B2T) * drum_gain;
         O += enable_snare * snare2((beat.y - 1.) * B2T, time.w + 0.789) * drum_gain;
@@ -597,7 +597,7 @@ vec2 mainSound(int samp_in, float time_in) {
 
     // O = vec2(0.0);
     // Snares leading into body sections
-    O += snare2((beat.w - 64.0 + 0.5) * B2T, time.w + 0.789);
+    O += drum_gain * snare2((beat.w - 64.0 + 0.5) * B2T, time.w + 0.789);
     // O += snare2((beat.w - 256.0 + 0.5) * B2T, time.w + 0.789);
 
     // TODO: There is a small click here in half_block 7
