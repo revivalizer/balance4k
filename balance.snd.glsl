@@ -45,12 +45,6 @@ const float T2B = BPS;
 const float B2T = 1.0 / BPS;
 //const float S2T = 0.25 * B2T;
 
-// vec2 kick(float t) {
-//     if (t < 0.)
-//         return vec2(0.);
-//     return vec2(tanh(sin(6.2831 * 30.0 * t) * exp(-50.0 * t) * 10.0));
-// }
-
 const float PI = 3.14159265358979323846;
 const float TAU = 2 * PI;
 
@@ -59,16 +53,6 @@ const float TAU = 2 * PI;
 float intExpPhase(float t, float f0, float kappa) {
     return (f0 / kappa) * (1.0 - exp(-kappa * t));
 }
-
-// pub fn Pan(Pan_: f64, PanningLaw: f64) audio_types.stereo_sample {
-//     // From http://music.columbia.edu/pipermail/music-dsp/2002-September/050872.html
-//     const Scale = 2.0 - 4.0 * mathtiny.pow(10.0, PanningLaw / 20.0);
-//     const PanR = Pan_;
-//     const PanL = 1.0 - Pan_;
-//     const GainL = Scale * PanL * PanL + (1.0 - Scale) * PanL;
-//     const GainR = Scale * PanR * PanR + (1.0 - Scale) * PanR;
-//     return audio_types.StereoSample(GainL, GainR);
-// }
 
 // CREDIT: http://music.columbia.edu/pipermail/music-dsp/2002-September/050872.html
 vec2 pan(float pan, float law) {
@@ -168,17 +152,6 @@ float linearenvexp(float t, float attack, float kappa) {
 }
 
 // More insp: https://www.youtube.com/watch?v=tPRBIBl5--w
-// vec2 dirtykick(float t) {
-//     if (t<0.)
-//         return vec2(0.);
-// 	vec2 V = vec2(tanh(1.4*sin(TAU*(hash3f(vec3(t)).x*0.155*exp(-t*8.0).x + 40.f*t + intExpPhase(t, 120.f, 10.f))) * exp(-t*6.)));
-// 	V += hash3f(vec3(t)).xy*2.1*exp(-t*50.);
-// 	float Drive = 2.0;
-// 	V = tanh(V*Drive);
-// 	V *= abs(sin(t*45.));
-//     return V;
-// }
-
 vec2 dirtykick2(float t) {
     if (t < 0.)
         return vec2(0.);
@@ -188,7 +161,6 @@ vec2 dirtykick2(float t) {
     V = tanh(V * Drive);
     V = stereowidth(V, 0.75);
     V *= linearenv_curve(1.5, 1.4, t * T2B); // Fade out, exp too slow, yields click
-    // V *= abs(sin(t*45.));
     return V;
 }
 
@@ -199,7 +171,7 @@ vec2 kick(float t) {
     V += hash3f_normalized(vec3(t)).xy * exp(-t * 50.);
     float Drive = 2.0;
     V = tanh(V * Drive);
-    V *= abs(sin(t * 15.)); // Ok, this is a little luck, gives a nice bounce
+    V *= abs(sin(t * 15.));
     return V;
 }
 
@@ -212,7 +184,6 @@ vec2 snare2(float t, float time) {
         return vec2(0.0);
 
     // May not be necessary to filter this, it is very short
-    // // Combine hp in snare2, hihat and shaker
     vec2 hit = vec2(0.0);
     const int N = 65;
     repeat(n, N)
@@ -220,7 +191,6 @@ vec2 snare2(float t, float time) {
         float tap = hp_tap(n, N, 8000.0) * blackman(n, N);
         hit += hash3f_normalized(vec3(time + float(n) / SAMPLES_PER_SEC)).xy * vec2(tap);
     }
-    // V *= vec2(exp(-t*15.));
     hit *= linearenvwithhold(t, 0.003, 0.005, 0.001); // 5ms
     hit = stereowidth(hit, 0.5);
 
@@ -228,7 +198,6 @@ vec2 snare2(float t, float time) {
     vec2 body = vec2(0.4 * sin(bodyphase));
     body *= linearenvwithhold(t, 0.010, 0.020, 0.100);
     body = tanh(hit + body * 3.0);
-    // vec2 body = vec2(0.4 * sin(TAU*(440.f*t + 44.0*(1.0 - exp(-10.0*t)))));
 
     vec2 noise = vec2(0.0);
     const int N2 = 21;
@@ -237,8 +206,6 @@ vec2 snare2(float t, float time) {
         float tap = res_tap(n, N, 5000.0, 0.9) * blackman(n, N);
         noise += hash3f_normalized(vec3(time + float(n) / SAMPLES_PER_SEC)).xy * vec2(tap);
     }
-    // V *= vec2(exp(-t*15.));
-    // noise *= linearenv(t, 0.040, 0.280);
     noise = stereowidth(noise, 0.3);
     noise *= linearenvexp(t, 0.035, 13.0);
 
@@ -247,20 +214,15 @@ vec2 snare2(float t, float time) {
     repeat(i, 12)
     {
         vec3 r = hash3f(vec3(float(i + 16.7)));
-        // float freq = 8000.0 + 4000.0*(r.x*r.x*r.x);
-        // float freq = p2f(60. + 30.*r.x); // This is much nicer when distributed in pitch space
         float freq = 160. + 40. * r.x;
         float ampl = exp(-3.0 * r.z);
         float phase = TAU * r.y;
-        // float decay = (14.*(1.+.8*r.x)+5.*r.z);
-        // O += (1.0 - r.x*0.4)*vec2( sin(phase + TAU*freq*t) * exp(-decay*t) );
         bell += tanh(vec2(ampl * vec2(cos(phase + TAU * freq * t), sin(phase + TAU * freq * t))) * 2.0);
     }
     bell *= linearenvexp(t - 0.015, 0.010, 10.0);
     bell = stereowidth(bell, 0.3);
 
     vec2 V = tanh((body * 0.3 + noise * 0.2 + bell * 0.07) * 5.0);
-    // vec2 V = noise;
 
     return V;
 }
@@ -279,7 +241,6 @@ vec2 hihat2(float t, float step_, float time) {
     }
 
     V *= vec2(exp(-t * 15.));
-    // V *= env(t, 5e-2, 0.4);
     V = stereowidth(V, 0.75);
     return V * 0.3;
 }
@@ -304,7 +265,6 @@ vec2 shaker(float t) {
     ;
 
     V *= env;
-    // V *= env(t, 5e-2, 0.4);
     V = stereowidth(V, 0.60);
     return V * 0.3;
 }
@@ -315,7 +275,6 @@ vec2 sweep_riser_combined(float t, float beginpitch, float endpitch, float env_s
 
     float minp = min(beginpitch, endpitch);
     float maxp = max(beginpitch, endpitch);
-    // float length = t * T2B / 8.0;
 
     float time_factor = 2.7 * 1.0;
 
@@ -333,8 +292,6 @@ vec2 sweep_riser_combined(float t, float beginpitch, float endpitch, float env_s
         float a = exp(-0.005 * pow(pfilter - p, 2.0));
         float magnitude = 1.0 / (2.0 * p2f(p) / p2f(minp));
         a *= magnitude;
-        // if (p < pfilter)
-        //     a = 1;
 
         float Q = a * sin(TAU * p2f(p) * t + r.z * TAU);
         V += Q * pan(r.y, -4.5);
@@ -380,9 +337,6 @@ vec2 pad(float barpos, float note) {
 
             float magnitude = 1.0 / pow((mode_freq / note_freq), 1.5);
 
-            // if (p < pfilter)
-            //     a = 1;
-
             float Q = mode_magnitude * magnitude * sin(TAU * freq * t + r.z * TAU);
             V += Q * pan(r.y * 0.5 + 0.5, -4.5);
         }
@@ -406,52 +360,7 @@ float filterformant(float freq, vec3 formant) {
     return V;
 }
 
-// // CREDIT: Formant values: https://www.classes.cs.uchicago.edu/archive/1999/spring/CS295/Computing_Resources/Csound/CsManual3.48b1.HTML/Appendices/table3.html
-// const vec3 formant_tenor_a[5] = vec3[](
-//         // vec3(650, from_db(0), 80),
-//         // vec3(1080, from_db(-6), 90),
-//         // vec3(2650, from_db(-7), 120),
-//         // vec3(2900, from_db(-8), 130),
-//         // vec3(3250, from_db(-22), 140)
-//         // CREDIT: ChatGPT did these for me
-//         vec3(650, 1.00, 80),
-//         vec3(1080, 0.50, 90),
-//         vec3(2650, 0.45, 120),
-//         vec3(2900, 0.40, 130),
-//         vec3(3250, 0.08, 140)
-//     );
-
-// // // const vec3 formant_bass_a[5] = vec3[](
-// // //         vec3(600, from_db(0), 80),
-// // //         vec3(1040, from_db(-7), 90),
-// // //         vec3(2250, from_db(-9), 120),
-// // //         vec3(2450, from_db(-9), 130),
-// // //         vec3(2750, from_db(-20), 140)
-// // //     );
-
-// // // const vec3 formant_tenor_u[5] = vec3[](
-// // //         vec3(350, from_db(0), 40),
-// // //         vec3(600, from_db(-20), 60),
-// // //         vec3(2700, from_db(-17), 100),
-// // //         vec3(2900, from_db(-14), 120),
-// // //         vec3(3300, from_db(-26), 120)
-// // //     );
-
-// const vec3 formant_tenor_o[5] = vec3[](
-//         // vec3(400, from_db(0), 40),
-//         // vec3(800, from_db(-10), 80),
-//         // vec3(2600, from_db(-12), 100),
-//         // vec3(2800, from_db(-12), 120),
-//         // vec3(3000, from_db(-26), 120)
-//         // CREDIT: ChatGPT also did these for me. Blind trust.
-//         vec3(400, 1.00, 40),
-//         vec3(800, 0.32, 80),
-//         vec3(2600, 0.25, 100),
-//         vec3(2800, 0.25, 120),
-//         vec3(3000, 0.05, 120)
-//     );
-
-// NOTE: Shader minifier has problems with the above construction
+// CREDIT: Formant values: https://www.classes.cs.uchicago.edu/archive/1999/spring/CS295/Computing_Resources/Csound/CsManual3.48b1.HTML/Appendices/table3.html
 //  This is formant_tenor_a and formant_tenor_o
 const vec3 formant_table[10] = vec3[](
         vec3(650, 1.00, 80),
@@ -472,7 +381,7 @@ vec2 pad3voice(float barpos, float barnum, float note) {
     if (t < 0.)
         return vec2(0.);
     if (barpos > 1.0) {
-        return vec2(0.); // Optimization
+        return vec2(0.);
     }
 
     float note_freq = p2f(note);
@@ -511,7 +420,6 @@ vec2 pad3voice(float barpos, float barnum, float note) {
             magnitude *= env;
 
             float Q = mode_magnitude * magnitude * sin(TAU * freq * t + r.z * TAU);
-            // V += Q * pan(r.y * 0.5 + 0.5, -4.5);
             V += Q * pan(step(r.y, 0.0), -4.5);
         }
     }
@@ -542,11 +450,9 @@ vec2 mainSound(int samp_in, float time_in) {
 
     float enable_pad = block < 5.0 ? 1.0 : 0.0;
 
-    // float enable_wah = ((block == 1.0 && bar_in_block_unfloor >= 14.5) || (block >= 2.0 && (block <= 5.0 || (block == 5.0 && bar_in_block_unfloor < 2.25)))) ? 1.0 : 0.0;
     float enable_wah = (beat.w >= beat_comp(1.0, 14.5, 0.0) && beat.w < beat_comp(5.0, 2.25, 0.0)) ? 1.0 : 0.0;
     float enable_kick = (block >= 1.0 && block <= 4.0) ? 1.0 : 0.0;
     float enable_snare = ((block >= 1.0 && block != 3.0 && block <= 4.0) ? 1.0 : 0.0);
-    // float enable_hihat = (block < 5.0) ? 1.0 : 0.0;
     float enable_hihat = (block < 5.0 && block != 3.0) ? 1.0 : 0.0;
     float enable_sweep = block >= 1.0 && block < 5.0 ? 1.0 : 0.0;
 
@@ -564,7 +470,6 @@ vec2 mainSound(int samp_in, float time_in) {
     }
 
     // A 440 Hz wave that attenuates quickly over time
-    // vec2 O = vec2(sin(time.z * TAU * 440.0) * 0.1);
     vec2 O = vec2(0.);
 
     float drum_gain = 0.4;
@@ -595,10 +500,8 @@ vec2 mainSound(int samp_in, float time_in) {
             + 0.7 * linearenvwithhold((beat.y - 1.0) * B2T - 0.000, 0.010, 0.100, 0.100);
     percsidechain = 1.0 - tanh(percsidechain * 1.5);
 
-    // O = vec2(0.0);
-    // Snares leading into body sections
+    // Snare leading into first body sections
     O += drum_gain * snare2((beat.w - 64.0 + 0.5) * B2T, time.w + 0.789);
-    // O += snare2((beat.w - 256.0 + 0.5) * B2T, time.w + 0.789);
 
     // TODO: There is a small click here in half_block 7
     float pad_switch_beat = mod(beat.z - 24.0, 32.0); // Last 2 bar in half block
@@ -612,8 +515,6 @@ vec2 mainSound(int samp_in, float time_in) {
     if ((pad_switch_env) > 0.0) {
         O += (pad_switch_env) * 1.5 * pad(mod(beat.z - 8.0, 64.0), 38.0) * sqrt(percsidechain);
     }
-
-    // O = vec2(0.0);
 
     O += enable_sweep * sweep((beat.z - 16.0) * B2T) * 0.7;
 
@@ -631,7 +532,6 @@ vec2 mainSound(int samp_in, float time_in) {
             float offset = 1.0;
             float offset_global_beat = beat.w + offset;
             float offset_half_block = offset_global_beat / 32.0;
-            // float offset_half_block = float((MusicSample + SAMPLES_PER_BEAT) / (SAMPLES_PER_BEAT * 32));
 
             bool modulated_pad = (offset_half_block >= 5.0 && offset_half_block < 8.0) && (mod(offset_half_block, 1.0) > 0.75);
 

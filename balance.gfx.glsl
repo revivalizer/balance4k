@@ -51,7 +51,7 @@ mat3 R(float x, int o) {
     m[c][c] = 1.0;
     return m;
 }
-/* R(t,0)=rotX, R(t,1)=rotY, R(t,2)=rotZ */
+// R(t,0)=rotX, R(t,1)=rotY, R(t,2)=rotZ
 
 // CREDIT: Hash functions from brainfiller/Ob5vr (https://github.com/0b5vr/brainfiller/blob/main/brainfiller.snd.glsl)
 uvec3 hash3u(uvec3 v) {
@@ -261,13 +261,9 @@ vec4 scene1(vec3 dir, float time, float sphereness, float planeness, float wildn
         vec3 p = vec3(cam_shake(time * camshake_timescale) * camshake_magnitude, 0.0) + z * dir;
 
         //Polar coordinates and additional transformations
-        // float sphereness = -0.1 + sin(time*0.1); // 0.0 = cylinder, 1.0 = sphere, small negative values are interesting!
         float cyl_sphere_plane_dist = mix(length(p.xy), length(p.xyz), sphereness);
         cyl_sphere_plane_dist = mix(cyl_sphere_plane_dist, length(p.x), planeness);
-        // float cyl_sphere_dist = mix(length(p.xy), length(p.xyz), sphereness);
         p = vec3(atan(p.y / .2, p.x) * 2., p.z / 4., cyl_sphere_plane_dist - 4. - z * .5);
-        //        p += 0.3*sin(p.zyx*3.);
-        //           p = round(p.xzy*10.1)/10.1;
 
         //Apply turbulence and refraction effect
         for (d = 0.; d++ < 7.; )
@@ -277,7 +273,6 @@ vec4 scene1(vec3 dir, float time, float sphereness, float planeness, float wildn
         z += d = length(vec4(.4 * cos(p) - 0.4, p.z));
 
         //Coloring and brightness
-        // O += (1.1+cos(p.x+i*.4+z+vec4(6,1,2,0)))/d;
         O += (1.0 + sin(i * 0.3 + z + time + vec4(6 * sin(time + z * 0.2 + 0.5), 1, 2 * sin(time * 0.1 + z * 0.9 + 0.3), 0))) / d;
     }
     //Tanh tonemap
@@ -287,27 +282,17 @@ vec4 scene1(vec3 dir, float time, float sphereness, float planeness, float wildn
 
 // CREDIT: Inspiration from https://www.shadertoy.com/view/3fBcR3
 vec4 scene2(vec3 dir, float time, float rounding_multiplier, float cam_shake_magnitude) {
-    // void mainImage(out vec4 o, vec2 u) {
-
     vec4 o = vec4(0.);
 
     vec3 q, p;
 
     float i, s,
-    // start the ray at a small random distance,
-    // this will reduce banding
-    //   d = .125*texelFetch(iChannel0, ivec2(uv)%1024, 0).a,
-    d = 0.0, // Rework this
+    d = 0.0,
     t = time;
-
-    // scale coords
-    //u =(u+u-p.xy)/p.y;
 
     for (o *= i; i++ < 1e2; ) {
 
         // shorthand for standard raymarch sample, then move forward:
-        // p = ro + rd * d, p.z -= 5.;
-        // q = p = vec3(u * d, d - 5.);
         q = p = dir * d + vec3(0., 0., 20.0 - time * 0.4) + vec3(cam_shake(time) * cam_shake_magnitude, 0.0);
 
         // turbulence
@@ -318,7 +303,6 @@ vec4 scene2(vec3 dir, float time, float rounding_multiplier, float cam_shake_mag
         // distance to spheres
         float dist_sphere = .005 + abs(-(length(p.xyz * 2.03 + 1.) - 2. - length(q.xyz - 1.) - 5.)) * .2;
         float dist_cyl = .005 + abs(-(length(p.xyz * 2.03 + 1.) - 2. - length(q.x - 1.) - 5.)) * .2;
-        // d += s = mix(dist_sphere, dist_cyl, -0.1 + 1.4*sin(time*0.1));
         d += s = dist_cyl;
 
         // color: 1.+cos so we don't go negative, cos(d+vec4(6,4,2,0)) samples from the palette
@@ -329,7 +313,6 @@ vec4 scene2(vec3 dir, float time, float rounding_multiplier, float cam_shake_mag
     // tonemap and divide brightness
     o = sqrt(tanh(o / 4e3));
     return o;
-    // }
 }
 
 float linearenv_curve(float edge0, float edge1, float x) {
@@ -345,7 +328,6 @@ void main() {
         return;
     }
 
-    // vec4 time = vec4((waveOutPosition + samp_offset - InitialQuietSamples) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 music_time = vec4((waveOutPosition - InitialQuietSamples) % (SAMPLES_PER_BEAT * ivec4(1, 4, 64, 65536))) / SAMPLES_PER_SEC;
     vec4 step = music_time * BPS;
     vec4 beat = step / 4.0;
@@ -458,12 +440,10 @@ void main() {
         }
     }
 
-    // vec2 uv2 = (gl_FragCoord.xy * 2 - resolution) / resolution.xy;
     vec2 uv2 = uv * resolution.yy / resolution.xy;
     outColor.xyz += 0.03 * hash3f_normalized(vec3(uv2, music_time.w));
     outColor.xyz = sqrt(outColor.xyz);
     outColor.xyz *= clamp(1.5 - 1.1 * length(uv2), 0.05, 1.0);
 
-    // outColor.xyz *= fade_in(step.w, 8.0, 8.0) * fade_down(step.w, 160.0, 4.0);
     outColor.xyz *= linearenv_curve(0.0, 8.0, step.w);
 }
